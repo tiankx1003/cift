@@ -1,0 +1,65 @@
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# IDE / Editor
+# ========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ========================
+# Claude Code
+# ========================
+.claude/
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Node
+# ========================
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# ========================
+# Docker & Infrastructure
+# ========================
+postgres-data/
+minio-data/
+chroma-data/
+chroma_data/
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# Coverage & Test
+# ========================
+coverage/
+htmlcov/
