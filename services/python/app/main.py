@@ -1,14 +1,21 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import parse_router, search_router, vectors_router
-from .services import ensure_bucket, get_minio_client
+from .routers import parse_router, search_router, vectors_router, upload_router, kbs_router
+from .services import ensure_bucket, get_minio_client, init_db
 from .utils import logger
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup: create PostgreSQL tables
+    try:
+        await init_db()
+        logger.info("Database tables ensured")
+    except Exception as e:
+        logger.warning(f"Database init failed: {e}")
     # Startup: ensure MinIO bucket exists
     try:
         client = get_minio_client()
@@ -21,9 +28,18 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="CIFT Python Service", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(parse_router)
 app.include_router(search_router)
 app.include_router(vectors_router)
+app.include_router(upload_router)
+app.include_router(kbs_router)
 
 
 @app.get("/health")

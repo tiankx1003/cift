@@ -14,10 +14,13 @@ class OllamaProvider(BaseEmbeddingProvider):
     @property
     def dimension(self) -> int:
         if self._dimension is None:
-            import asyncio
-
-            vec = asyncio.get_event_loop().run_until_complete(self.embed_query("test"))
-            self._dimension = len(vec)
+            resp = httpx.post(
+                f"{self.base_url}/api/embeddings",
+                json={"model": self.model, "prompt": "test"},
+                timeout=60.0,
+            )
+            resp.raise_for_status()
+            self._dimension = len(resp.json()["embedding"])
         return self._dimension
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -25,13 +28,13 @@ class OllamaProvider(BaseEmbeddingProvider):
         async with httpx.AsyncClient() as client:
             for text in texts:
                 resp = await client.post(
-                    f"{self.base_url}/api/embed",
-                    json={"model": self.model, "input": text},
+                    f"{self.base_url}/api/embeddings",
+                    json={"model": self.model, "prompt": text},
                     timeout=60.0,
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                results.append(data["embeddings"][0])
+                results.append(data["embedding"])
         return results
 
     async def embed_query(self, text: str) -> list[float]:

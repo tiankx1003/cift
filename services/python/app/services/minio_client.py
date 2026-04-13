@@ -24,6 +24,22 @@ def ensure_bucket(client: Minio, bucket: str | None = None) -> None:
         client.make_bucket(bucket)
 
 
+def upload_file(
+    client: Minio,
+    storage_key: str,
+    data: bytes,
+    content_type: str = "application/octet-stream",
+    bucket: str | None = None,
+) -> str:
+    settings = get_settings()
+    bucket = bucket or settings.minio_bucket
+    client.put_object(
+        bucket, storage_key, BytesIO(data), length=len(data),
+        content_type=content_type,
+    )
+    return storage_key
+
+
 def download_file(client: Minio, storage_key: str, bucket: str | None = None) -> bytes:
     settings = get_settings()
     bucket = bucket or settings.minio_bucket

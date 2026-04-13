@@ -3,16 +3,19 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    # PostgreSQL
+    database_url: str = "postgresql+asyncpg://cift:cift123@localhost:5432/cift"
+
     # Embedding
-    embedding_provider: str = "dummy"
-    embedding_model: str = "text-embedding-3-small"
+    embedding_provider: str = "ollama"
+    embedding_model: str = "qllama/bge-small-zh-v1.5"
 
     # MLX
     mlx_model_name: str = "mlx-community/bge-small-zh-v1.5-mlx"
     mlx_batch_size: int = 32
 
     # Ollama
-    ollama_base_url: str = "http://ollama:11434"
+    ollama_base_url: str = "http://localhost:11434"
 
     # llama.cpp
     llama_cpp_model_path: str = ""

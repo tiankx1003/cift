@@ -25,6 +25,20 @@ class ParseResponse(BaseModel):
     error_message: str | None = None
 
 
+# --- Upload ---
+
+class UploadResponse(BaseModel):
+    doc_id: str
+    kb_id: str
+    filename: str
+    file_type: str  # "txt" | "md"
+    file_size: int
+    storage_key: str
+    status: str  # "completed" | "failed"
+    chunk_count: int = 0
+    error_message: str | None = None
+
+
 # --- Search ---
 
 class SearchRequest(BaseModel):
@@ -48,3 +62,26 @@ class SearchResponse(BaseModel):
 
 class VectorDeleteRequest(BaseModel):
     doc_id: str | None = None  # None means delete all vectors in the kb
+
+
+# --- Knowledge Base ---
+
+class CreateKbRequest(BaseModel):
+    name: str
+    description: str = ""
+
+
+class KbInfo(BaseModel):
+    kb_id: str
+    name: str
+    description: str
+    doc_count: int = 0
+
+
+class DocumentInfo(BaseModel):
+    doc_id: str
+    filename: str
+    file_type: str
+    file_size: int
+    status: str
+    chunk_count: int

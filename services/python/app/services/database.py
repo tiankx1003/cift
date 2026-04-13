@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import String, Text, Integer, BigInteger, ForeignKey, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.utils.config import get_settings
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class KnowledgeBase(Base):
+    __tablename__ = "knowledge_bases"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    doc_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    documents: Mapped[list["Document"]] = relationship(back_populates="kb", cascade="all, delete-orphan")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    kb_id: Mapped[str] = mapped_column(ForeignKey("knowledge_bases.id", ondelete="CASCADE"))
+    filename: Mapped[str] = mapped_column(String(256))
+    file_type: Mapped[str] = mapped_column(String(16))
+    file_size: Mapped[int] = mapped_column(BigInteger)
+    storage_key: Mapped[str] = mapped_column(String(512))
+    status: Mapped[str] = mapped_column(String(16), default="parsing")
+    chunk_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    kb: Mapped["KnowledgeBase"] = relationship(back_populates="documents")
+
+
+_engine = None
+_session_factory = None
+
+
+def _get_engine():
+    global _engine, _session_factory
+    if _engine is None:
+        settings = get_settings()
+        _engine = create_async_engine(settings.database_url, echo=False)
+        _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+    return _engine, _session_factory
+
+
+async def init_db():
+    engine, _ = _get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def get_db() -> AsyncSession:
+    _, factory = _get_engine()
+    async with factory() as session:
+        yield session
