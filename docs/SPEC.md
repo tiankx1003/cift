@@ -17,9 +17,9 @@
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| 前端 | React 19 + TypeScript + Vite | 主流 SPA 框架，生态成熟 |
+| 前端 | React 19 + TypeScript + Vite + Ant Design Pro | 主流 SPA 框架，生态成熟 ✅已搭建 |
 | UI 组件库 | Ant Design 5 | 企业级 UI 组件，表格/表单/上传组件完善 |
-| Node 服务 | Express + TypeScript | API 网关，处理用户请求、文件上传、业务编排 |
+| Node 服务 | Express + TypeScript | API 网关，处理用户请求、文件上传、业务编排 ✅已搭建 |
 | Python 服务 | FastAPI | 文档解析、文本分块、向量嵌入生成 |
 | 关系数据库 | PostgreSQL | 存储用户、知识库、文档元数据 |
 | 向量数据库 | ChromaDB | 存储文档向量，支持相似度检索 |
@@ -476,12 +476,12 @@ services/python/app/
 
 ### Phase 1 - 基础骨架 (MVP)
 
-- [ ] 项目脚手架搭建（Docker Compose + 各服务骨架）
-- [ ] 数据库初始化（PostgreSQL schema）
-- [ ] Node Service: 用户认证 + 知识库 CRUD
-- [ ] Python Service: TXT/Markdown 解析 + 分块 + 嵌入
-- [ ] 前端: 登录注册 + 知识库管理 + 文件上传 + 搜索
-- [ ] Docker Compose 联调
+- [x] 项目脚手架搭建（Docker Compose + 各服务骨架）
+- [x] 数据库初始化（PostgreSQL schema）
+- [x] Node Service: 用户认证（JWT）+ 知识库 CRUD + 文件上传代理 + 搜索转发
+- [x] Python Service: TXT/Markdown 解析 + 分块 + 嵌入（支持 MLX/Ollama/llama.cpp/OpenAI）
+- [x] 前端: Ant Design Pro 风格布局 + 登录页 + 知识库管理 + 文件上传 + 语义搜索
+- [ ] Docker Compose 全链路联调
 
 ### Phase 2 - 体验优化
 

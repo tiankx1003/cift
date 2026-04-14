@@ -10,8 +10,8 @@ CIFT (Context Intelligence Framework & Toolkit) — a knowledge base management 
 
 Four services orchestrated via Docker Compose:
 
-- **frontend/** — React 19 + TypeScript + Vite + Ant Design 5 *(not yet scaffolded)*
-- **services/node/** — Express + TypeScript API Gateway (auth, KB CRUD, file upload, search orchestration) *(not yet scaffolded)*
+- **frontend/** — React 19 + TypeScript + Vite + Ant Design Pro (ProLayout)
+- **services/node/** — Express + TypeScript API Gateway (auth, KB CRUD, file upload, search orchestration)
 - **services/python/** — FastAPI service (document parsing, text chunking, vector embedding, similarity search) **scaffolded and running**
 - **infra/** — Nginx config, DB init scripts *(not yet scaffolded)*
 

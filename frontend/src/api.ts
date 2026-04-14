@@ -1,13 +1,57 @@
-const BASE = '/internal';
+import { getAuthHeaders, removeToken } from './utils/auth';
+
+const BASE = '/api';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init);
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string> ?? {}),
+    ...getAuthHeaders(),
+  };
+
+  const res = await fetch(`${BASE}${path}`, { ...init, headers });
+
+  if (res.status === 401) {
+    removeToken();
+    window.location.href = '/login';
+    throw new Error('未登录或登录已过期');
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `HTTP ${res.status}`);
+    throw new Error(body.message || body.detail || `HTTP ${res.status}`);
   }
+
   return res.json();
 }
+
+// --- Auth ---
+
+export interface AuthResponse {
+  user: { id: string; username: string };
+  token: string;
+}
+
+export interface UserInfo {
+  id: string;
+  username: string;
+  created_at: string;
+}
+
+export const login = (username: string, password: string) =>
+  request<AuthResponse>('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+export const register = (username: string, password: string) =>
+  request<AuthResponse>('/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+
+export const getMe = () => request<UserInfo>('/auth/me');
 
 // --- KB ---
 
@@ -47,7 +91,7 @@ export const listDocuments = (kbId: string) =>
   request<DocumentInfo[]>(`/kbs/${kbId}/documents`);
 
 export const deleteDocument = (kbId: string, docId: string) =>
-  request<{ status: string }>(`/vectors/${kbId}/doc/${docId}`, { method: 'DELETE' });
+  request<{ status: string }>(`/kbs/${kbId}/documents/${docId}`, { method: 'DELETE' });
 
 // --- Upload ---
 
@@ -66,8 +110,10 @@ export interface UploadResponse {
 export const uploadFile = (kbId: string, file: File) => {
   const form = new FormData();
   form.append('file', file);
-  form.append('kb_id', kbId);
-  return request<UploadResponse>('/upload', { method: 'POST', body: form });
+  return request<UploadResponse>(`/kbs/${kbId}/documents/upload`, {
+    method: 'POST',
+    body: form,
+  });
 };
 
 // --- Search ---
@@ -84,8 +130,8 @@ export interface SearchResponse {
 }
 
 export const search = (kbId: string, query: string, topK = 5) =>
-  request<SearchResponse>('/search', {
+  request<SearchResponse>(`/kbs/${kbId}/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kb_id: kbId, query, top_k: topK }),
+    body: JSON.stringify({ query, top_k: topK }),
   });

@@ -14,6 +14,10 @@ import {
   Space,
   Spin,
   Empty,
+  Row,
+  Col,
+  Progress,
+  Statistic,
 } from 'antd';
 import {
   UploadOutlined,
@@ -21,6 +25,9 @@ import {
   SearchOutlined,
   DeleteOutlined,
   FileTextOutlined,
+  FileMarkdownOutlined,
+  DatabaseOutlined,
+  AppstoreOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
@@ -80,7 +87,7 @@ export default function KbDetail() {
     } finally {
       setUploading(false);
     }
-    return false; // prevent default upload behavior
+    return false;
   };
 
   const handleDeleteDoc = async (docId: string) => {
@@ -116,31 +123,114 @@ export default function KbDetail() {
     return <Empty description="知识库不存在" style={{ marginTop: 80 }} />;
   }
 
+  const totalChunks = docs.reduce((sum, d) => sum + (d.chunk_count || 0), 0);
+  const completedDocs = docs.filter(d => d.status === 'completed').length;
+
+  const fileTypeIcon = (fileType: string) => {
+    if (fileType === 'md' || fileType === 'markdown') return <FileMarkdownOutlined style={{ color: '#722ed1' }} />;
+    return <FileTextOutlined style={{ color: '#1677ff' }} />;
+  };
+
+  const scoreColor = (score: number) => {
+    if (score > 0.8) return '#52c41a';
+    if (score > 0.6) return '#1677ff';
+    if (score > 0.4) return '#faad14';
+    return '#ff4d4f';
+  };
+
   return (
-    <div style={{ padding: '24px 48px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/')} />
-        <Title level={4} style={{ margin: 0 }}>{kb.name}</Title>
-        <Tag>{kb.doc_count} 条向量</Tag>
+    <div>
+      {/* Page Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          marginBottom: 24,
+        }}
+      >
+        <Button
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/')}
+          style={{ borderRadius: 6 }}
+        />
+        <Title level={4} style={{ margin: 0, flex: 1 }}>{kb.name}</Title>
+        {kb.description && <Text type="secondary">{kb.description}</Text>}
       </div>
 
-      {/* Upload */}
-      <Card title="上传文件" size="small" style={{ marginBottom: 24 }}>
+      {/* Stats Row */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={8}>
+          <Card style={{ borderRadius: 8 }}>
+            <Statistic
+              title="文档数"
+              value={docs.length}
+              prefix={<FileTextOutlined />}
+              valueStyle={{ color: '#1677ff' }}
+              suffix={`(${completedDocs} 已完成)`}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card style={{ borderRadius: 8 }}>
+            <Statistic
+              title="分块数"
+              value={totalChunks}
+              prefix={<AppstoreOutlined />}
+              valueStyle={{ color: '#722ed1' }}
+              suffix="个"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card style={{ borderRadius: 8 }}>
+            <Statistic
+              title="向量数"
+              value={kb.doc_count}
+              prefix={<DatabaseOutlined />}
+              valueStyle={{ color: '#52c41a' }}
+              suffix="条"
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Upload + Documents */}
+      <Card
+        title={
+          <span>
+            <UploadOutlined style={{ marginRight: 8 }} />
+            文件上传
+          </span>
+        }
+        size="small"
+        style={{ marginBottom: 24, borderRadius: 8 }}
+      >
         <Upload
           accept=".txt,.md"
           showUploadList={false}
           beforeUpload={handleUpload}
           disabled={uploading}
         >
-          <Button icon={<UploadOutlined />} loading={uploading}>
+          <Button icon={<UploadOutlined />} loading={uploading} type="primary">
             {uploading ? '处理中...' : '选择文件 (.txt / .md)'}
           </Button>
         </Upload>
-        <Text type="secondary" style={{ marginLeft: 12 }}>支持 .txt 和 .md，最大 10MB</Text>
+        <Text type="secondary" style={{ marginLeft: 12 }}>
+          支持 .txt 和 .md，最大 10MB
+        </Text>
       </Card>
 
-      {/* Documents */}
-      <Card title="文档列表" size="small" style={{ marginBottom: 24 }}>
+      <Card
+        title={
+          <span>
+            <FileTextOutlined style={{ marginRight: 8 }} />
+            文档列表
+          </span>
+        }
+        size="small"
+        style={{ marginBottom: 24, borderRadius: 8 }}
+      >
         {docs.length === 0 ? (
           <Empty description="暂无文档，上传文件开始使用" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
@@ -154,8 +244,11 @@ export default function KbDetail() {
                 title: '文件名',
                 dataIndex: 'filename',
                 ellipsis: true,
-                render: (name: string) => (
-                  <span><FileTextOutlined style={{ marginRight: 6 }} />{name}</span>
+                render: (name: string, record: api.DocumentInfo) => (
+                  <span>
+                    <span style={{ marginRight: 8 }}>{fileTypeIcon(record.file_type)}</span>
+                    {name}
+                  </span>
                 ),
               },
               {
@@ -204,7 +297,16 @@ export default function KbDetail() {
       </Card>
 
       {/* Search */}
-      <Card title="语义搜索" size="small">
+      <Card
+        title={
+          <span>
+            <SearchOutlined style={{ marginRight: 8 }} />
+            语义搜索
+          </span>
+        }
+        size="small"
+        style={{ borderRadius: 8 }}
+      >
         <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
           <Input
             placeholder="输入查询内容..."
@@ -231,9 +333,16 @@ export default function KbDetail() {
         <List
           dataSource={results}
           renderItem={(item) => (
-            <List.Item>
+            <List.Item style={{ padding: '12px 0' }}>
               <div style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 8,
+                  }}
+                >
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     文档: {item.metadata.doc_id} | 分块 #{item.metadata.chunk_index}
                   </Text>
@@ -241,7 +350,14 @@ export default function KbDetail() {
                     {(item.score * 100).toFixed(1)}%
                   </Tag>
                 </div>
-                <Paragraph style={{ margin: 0 }}>{item.content}</Paragraph>
+                <Progress
+                  percent={Math.round(item.score * 100)}
+                  strokeColor={scoreColor(item.score)}
+                  showInfo={false}
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                />
+                <Paragraph style={{ margin: 0, color: '#333' }}>{item.content}</Paragraph>
               </div>
             </List.Item>
           )}
