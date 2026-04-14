@@ -16,13 +16,19 @@ export async function migrate() {
     )
   `);
 
-  // Add user_id column to knowledge_bases if not exists
-  const { rows } = await pool.query(`
-    SELECT column_name FROM information_schema.columns
-    WHERE table_name = 'knowledge_bases' AND column_name = 'user_id'
+  // Add user_id column to knowledge_bases if table and column don't exist yet
+  const tableCheck = await pool.query(`
+    SELECT 1 FROM information_schema.tables
+    WHERE table_name = 'knowledge_bases'
   `);
-  if (rows.length === 0) {
-    await pool.query(`ALTER TABLE knowledge_bases ADD COLUMN user_id VARCHAR(36)`);
+  if (tableCheck.rows.length > 0) {
+    const { rows } = await pool.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'knowledge_bases' AND column_name = 'user_id'
+    `);
+    if (rows.length === 0) {
+      await pool.query(`ALTER TABLE knowledge_bases ADD COLUMN user_id VARCHAR(36)`);
+    }
   }
 
   console.log('Database migration complete');

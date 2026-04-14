@@ -84,7 +84,7 @@ export default function Home() {
     }
   };
 
-  const totalVectors = kbs.reduce((sum, kb) => sum + (kb.doc_count || 0), 0);
+  const totalDocs = kbs.reduce((sum, kb) => sum + (kb.doc_count || 0), 0);
 
   return (
     <div>
@@ -104,21 +104,10 @@ export default function Home() {
           <Card style={{ borderRadius: 8 }}>
             <Statistic
               title="文档总数"
-              value={kbs.length}
+              value={totalDocs}
               prefix={<FileTextOutlined />}
               valueStyle={{ color: '#52c41a' }}
               suffix="个"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Card style={{ borderRadius: 8 }}>
-            <Statistic
-              title="向量总数"
-              value={totalVectors}
-              prefix={<AppstoreOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-              suffix="条"
             />
           </Card>
         </Col>

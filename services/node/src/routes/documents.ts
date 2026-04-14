@@ -1,9 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { v4 as uuid } from 'uuid';
 import { authRequired } from '../middleware/auth.js';
 import { pythonClient } from '../services/pythonClient.js';
-import { uploadFile } from '../services/minioClient.js';
 import { pool } from '../db.js';
 
 export const docRouter = Router({ mergeParams: true });
@@ -49,24 +47,8 @@ docRouter.post('/upload', upload.single('file'), async (req: Request, res: Respo
   }
 
   const kbId = req.params.kbId as string;
-  const docId = uuid().replace(/-/g, '');
-  const fileType = ext.slice(1);
-  const storageKey = `${kbId}/${docId}/${file.originalname}`;
-
-  await uploadFile(storageKey, file.buffer, MIME_MAP[ext]);
-  const result = await pythonClient.parseDocument(docId, storageKey, fileType, kbId);
-
-  res.status(201).json({
-    doc_id: docId,
-    kb_id: kbId,
-    filename: file.originalname,
-    file_type: fileType,
-    file_size: file.size,
-    storage_key: storageKey,
-    status: result.status,
-    chunk_count: result.chunk_count,
-    error_message: result.error_message,
-  });
+  const result = await pythonClient.uploadDocument(kbId, file.buffer, file.originalname, MIME_MAP[ext]);
+  res.status(201).json(result);
 });
 
 // DELETE /api/kbs/:kbId/documents/:docId
