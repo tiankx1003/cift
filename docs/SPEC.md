@@ -481,7 +481,9 @@ services/python/app/
 - [x] Node Service: 用户认证（JWT）+ 知识库 CRUD + 文件上传代理 + 搜索转发
 - [x] Python Service: TXT/Markdown 解析 + 分块 + 嵌入（支持 MLX/Ollama/llama.cpp/OpenAI）
 - [x] 前端: Ant Design Pro 风格布局 + 登录页 + 知识库管理 + 文件上传 + 语义搜索
-- [ ] Docker Compose 全链路联调
+- [x] Docker Compose 全链路联调
+
+**Phase 1 已完成 ✅ (2026-04-14)**
 
 ### Phase 2 - 体验优化
 

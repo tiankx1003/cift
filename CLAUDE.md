@@ -4,18 +4,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CIFT (Context Intelligence Framework & Toolkit) — a knowledge base management system supporting file upload, parsing, vector embedding, and semantic search. Currently in Phase 1 (MVP) development.
+CIFT (Context Intelligence Framework & Toolkit) — a knowledge base management system supporting file upload, parsing, vector embedding, and semantic search. Phase 1 (MVP) is feature-complete.
 
 ## Architecture
 
-Four services orchestrated via Docker Compose:
+Six services orchestrated via Docker Compose behind a top-level Nginx reverse proxy:
 
-- **frontend/** — React 19 + TypeScript + Vite + Ant Design Pro (ProLayout)
-- **services/node/** — Express + TypeScript API Gateway (auth, KB CRUD, file upload, search orchestration)
-- **services/python/** — FastAPI service (document parsing, text chunking, vector embedding, similarity search) **scaffolded and running**
-- **infra/** — Nginx config, DB init scripts *(not yet scaffolded)*
+- **frontend/** — React 19 + TypeScript + Vite + Ant Design 6 + ProLayout
+- **services/node/** — Express + TypeScript API Gateway (JWT auth, KB CRUD, file upload proxy, search proxy)
+- **services/python/** — FastAPI service (document parsing, text chunking, vector embedding, similarity search)
+- **infra/nginx/** — Top-level Nginx config (`/api/*` → node-service, `/` → frontend)
+- **postgres** — Metadata storage (users, knowledge_bases, documents)
+- **chromadb** / **minio** — Vector storage / raw file storage
 
-Storage: PostgreSQL (metadata) | ChromaDB (vectors) | MinIO (raw files)
+Request flow: `Browser → Nginx:80 → /api/* → Node:3000 → Python:8000`
+                                    `→ /*    → Frontend (static)`
+
+## Node Service (`services/node/`)
+
+Express + TypeScript API Gateway. Dependencies via npm. `tsx` for dev, `tsc` for build.
+
+Key modules:
+- `src/routes/auth.ts` — Register, login (`POST /api/auth/*`), `getMe`
+- `src/routes/knowledgeBases.ts` — KB CRUD, queries PostgreSQL directly for ownership
+- `src/routes/documents.ts` — Upload forwards file to Python `/internal/upload`, list/delete proxies to Python
+- `src/routes/search.ts` — Search proxy to Python
+- `src/middleware/auth.ts` — JWT Bearer token verification
+- `src/services/pythonClient.ts` — HTTP client to Python service (`/internal/*` routes)
+- `src/services/minioClient.ts` — MinIO bucket management (ensureBucket)
 
 ## Python Service (`services/python/`)
 
@@ -29,10 +45,13 @@ services/python/
     ├── main.py                      # FastAPI entry, lifespan ensures MinIO bucket
     ├── models/schemas.py            # Pydantic request/response models
     ├── routers/
-    │   ├── parse.py                 # POST /internal/parse (MinIO) & /internal/parse-direct (bypass MinIO)
+    │   ├── kbs.py                   # KB CRUD + document listing (GET /internal/kbs)
+    │   ├── upload.py                # POST /internal/upload (full pipeline)
+    │   ├── parse.py                 # POST /internal/parse (MinIO) & /internal/parse-direct
     │   ├── search.py                # POST /internal/search
     │   └── vectors.py               # DELETE /internal/vectors/{kb_id}[/doc/{doc_id}]
     ├── services/
+    │   ├── database.py              # SQLAlchemy ORM models (KnowledgeBase, Document)
     │   ├── embedding/               # Provider abstraction
     │   │   ├── base.py              #   BaseEmbeddingProvider ABC
     │   │   ├── factory.py           #   create_embedding_provider(settings)
@@ -50,50 +69,52 @@ services/python/
         └── logger.py                # structured stdout logger
 ```
 
-### Embedding System
+### Upload Pipeline (Node → Python)
 
-Provider abstraction in `services/python/app/services/embedding/`. Factory pattern via `EMBEDDING_PROVIDER` env var.
+`Node receives file` → `Node forwards to Python POST /internal/upload` → Python creates Document record in PostgreSQL → stores file in MinIO → parses text → chunks → embeds → stores vectors in ChromaDB → updates `kb.doc_count`.
 
-Providers: `mlx` (default, Apple Silicon) | `ollama` | `llama_cpp` | `openai` | `dummy` (testing)
+## Frontend (`frontend/`)
 
-### Current Defaults (local dev without Docker)
+React 19 + Ant Design 6 + ProLayout (v3 beta for antd 6 compat).
 
-`EMBEDDING_PROVIDER=dummy`, `chroma_host=""` (uses PersistentClient at `./chroma_data`). These are set in `app/utils/config.py` defaults, not in `.env`. Change `embedding_provider` back to `"mlx"` for production.
-
-### Parse Pipeline
-
-`parse router` → download from MinIO (or direct content via `parse-direct`) → parser extracts text → chunker splits → embedding provider generates vectors → write to ChromaDB collection (one per kb_id).
+- `src/api.ts` — API client, base URL `/api`, auto JWT injection, 401 → `/login`
+- `src/utils/auth.ts` — Token management (localStorage, key: `cift_token`)
+- `src/components/BasicLayout.tsx` — ProLayout shell with auth guard
+- `src/pages/Login.tsx` — Login/register with Tabs, gradient background
+- `src/pages/Home.tsx` — KB list with stats cards, color-coded cards
+- `src/pages/KbDetail.tsx` — File upload, document table, semantic search with progress bars
 
 ## Key Conventions
 
 - Node ↔ Python communication uses `/internal/*` routes (not exposed to frontend)
+- Frontend ↔ Node uses `/api/*` routes with JWT Bearer token
 - Each knowledge base maps to one ChromaDB collection; vector dimension is fixed per collection
 - Document status flow: `uploading → parsing → completed | failed`
-- JWT auth on all `/api/*` routes except login/register
+- JWT auth on all `/api/*` routes except `/api/auth/login` and `/api/auth/register`
 - File size limit: 10MB; supported formats: txt, md (Phase 1)
 - All imports inside Python service use **absolute** form: `from app.xxx import ...`
+- All imports inside Node service use **relative with .js extension**: `from './config.js'`
 
 ## Common Commands
 
 ```bash
-# Python service (from services/python/)
-uv sync                      # install dependencies
-uv sync --extra mlx          # also install MLX provider
-uv sync --extra dev          # also install pytest etc.
-uvicorn app.main:app --reload   # dev server on :8000
-uv run pytest                   # run tests
-
-# Docker (from project root, once fully scaffolded)
+# Docker (from project root)
 docker compose up --build          # start all services
+docker compose down -v             # stop and clear data
 docker compose logs -f <service>   # tail logs
 
 # Frontend (from frontend/)
-npm run dev                        # Vite dev server
+npm run dev                        # Vite dev server (proxies /api → :3000)
 npm run build                      # production build
 
 # Node service (from services/node/)
-npm run dev                        # dev with hot reload
+npm run dev                        # dev with tsx watch
 npm run build                      # compile TypeScript
+
+# Python service (from services/python/)
+uv sync                            # install dependencies
+uv sync --extra mlx                # also install MLX provider
+uv run uvicorn app.main:app --reload  # dev server on :8000
 ```
 
 ## Spec
