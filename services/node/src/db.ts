@@ -1,0 +1,29 @@
+import pg from 'pg';
+import { config } from './config.js';
+
+const { Pool } = pg;
+
+export const pool = new Pool({ connectionString: config.databaseUrl });
+
+export async function migrate() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id VARCHAR(36) PRIMARY KEY,
+      username VARCHAR(64) UNIQUE NOT NULL,
+      password_hash VARCHAR(256) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  // Add user_id column to knowledge_bases if not exists
+  const { rows } = await pool.query(`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'knowledge_bases' AND column_name = 'user_id'
+  `);
+  if (rows.length === 0) {
+    await pool.query(`ALTER TABLE knowledge_bases ADD COLUMN user_id VARCHAR(36)`);
+  }
+
+  console.log('Database migration complete');
+}

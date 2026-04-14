@@ -34,9 +34,38 @@
 
 ### 下一步
 - [ ] 支持更多文件格式（PDF、Word）
-- [ ] 前端体验优化（拖拽上传、搜索高亮、分块预览）
-- [ ] 用户认证（JWT）
+- [ ] 前端适配 Node Gateway（切换 API 地址到 :3000 /api/*）
+- [ ] Node Gateway 加入 Docker Compose
 - [ ] 生产部署优化（HTTPS、密钥管理）
+
+## Node API Gateway (`services/node/`)
+
+### 2026-04-14 完成
+- [x] **Node API Gateway 搭建** — Express + TypeScript，端口 3000
+  - 认证系统：JWT + bcrypt，注册/登录/获取用户信息三个接口
+  - 知识库 CRUD：GET/POST/GET/:id/PUT/:id/DELETE/:id，全部 JWT 保护 + 用户隔离
+  - 文档管理：列表、上传（multer → MinIO → Python parse）、删除、重试解析
+  - 语义搜索：代理到 Python `/internal/search`
+  - 统一错误格式：`{ code, message, details }`
+- [x] **数据库扩展** — 启动时自动迁移
+  - 新建 `users` 表（id, username, password_hash, created_at, updated_at）
+  - `knowledge_bases` 表新增 `user_id` 列，实现数据隔离
+  - 与 Python 服务共用同一 PostgreSQL 数据库，互不干扰
+- [x] **端到端验证通过**：注册 → 登录 → 创建 KB → 列表/更新 → 搜索 → 401/404 错误处理
+
+### 新增文件
+- `services/node/package.json` / `tsconfig.json`
+- `services/node/src/index.ts` — Express 入口 + 自动迁移
+- `services/node/src/config.ts` — 环境变量
+- `services/node/src/db.ts` — pg 连接池 + 迁移
+- `services/node/src/middleware/auth.ts` — JWT 认证
+- `services/node/src/middleware/errorHandler.ts` — 统一错误处理
+- `services/node/src/routes/auth.ts` — 认证路由
+- `services/node/src/routes/knowledgeBases.ts` — KB 路由
+- `services/node/src/routes/documents.ts` — 文档路由
+- `services/node/src/routes/search.ts` — 搜索路由
+- `services/node/src/services/pythonClient.ts` — Python 服务客户端
+- `services/node/src/services/minioClient.ts` — MinIO 客户端
 
 ## 2026-04-13
 
@@ -63,3 +92,4 @@
 - Docker 部署：`docker compose up --build`（端口 80）
 - 本地开发前端：`cd frontend && npm run dev`（端口 5173，代理 /internal 到 :8000）
 - 本地开发后端：`cd services/python && uv run uvicorn app.main:app --port 8000`
+- 本地开发网关：`cd services/node && npm run dev`（端口 3000，需设置 DATABASE_URL、PYTHON_SERVICE_URL、JWT_SECRET）
