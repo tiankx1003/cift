@@ -93,7 +93,68 @@ class ChunkInfo(BaseModel):
     chunk_index: int
     content: str
     char_count: int
+    start_offset: int | None = None
+    end_offset: int | None = None
 
 
 class ChunksResponse(BaseModel):
+    extracted_text: str = ""
     chunks: list[ChunkInfo]
+
+
+# --- Chunk Config ---
+
+class ChunkConfigCreate(BaseModel):
+    name: str
+    chunk_size: int = 800
+    chunk_overlap: int = 200
+    separators: str = ""
+
+class ChunkConfigUpdate(BaseModel):
+    name: str | None = None
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    separators: str | None = None
+
+class ChunkConfigInfo(BaseModel):
+    id: str
+    name: str
+    chunk_size: int
+    chunk_overlap: int
+    separators: str
+    is_default: bool
+
+class ChunkRequest(BaseModel):
+    kb_id: str
+    config_id: str | None = None
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    separators: str | None = None
+
+
+# --- Model Config ---
+
+class ModelConfigCreate(BaseModel):
+    model_type: str  # "llm" | "embedding" | "rerank"
+    provider: str    # "ollama" | "openai" | "mlx" | "llama_cpp"
+    model_name: str
+    base_url: str = ""
+    api_key: str = ""
+    extra_params: str | None = None
+
+class ModelConfigUpdate(BaseModel):
+    provider: str | None = None
+    model_name: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
+    extra_params: str | None = None
+
+class ModelConfigInfo(BaseModel):
+    id: str
+    model_type: str
+    provider: str
+    model_name: str
+    base_url: str
+    api_key: str  # masked in response by router
+    is_active: bool
+    extra_params: str | None = None

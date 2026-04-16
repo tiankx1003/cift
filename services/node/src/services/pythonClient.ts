@@ -75,4 +75,105 @@ export const pythonClient = {
     request<{ chunks: Array<{ chunk_index: number; content: string; char_count: number }> }>(
       `/internal/documents/${docId}/chunks?kb_id=${kbId}`
     ),
+
+  chunkDocument: (docId: string, body: { kb_id: string; config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
+    request<{ doc_id: string; status: string; chunk_count: number }>(`/internal/documents/${docId}/chunk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  listChunkConfigs: (kbId: string) =>
+    request<Array<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>>(
+      `/internal/kbs/${kbId}/chunk-configs`
+    ),
+
+  createChunkConfig: (kbId: string, data: { name: string; chunk_size: number; chunk_overlap: number; separators: string }) =>
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/chunk-configs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  updateChunkConfig: (kbId: string, configId: string, data: { name?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/chunk-configs/${configId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  deleteChunkConfig: (kbId: string, configId: string) =>
+    request<{ status: string }>(`/internal/kbs/${kbId}/chunk-configs/${configId}`, { method: 'DELETE' }),
+
+  setDefaultChunkConfig: (kbId: string, configId: string) =>
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/chunk-configs/${configId}/default`, { method: 'PUT' }
+    ),
+
+  // --- Model Configs ---
+
+  listModels: (type?: string) =>
+    request<Array<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean; extra_params: string | null }>>(
+      `/internal/models${type ? `?type=${type}` : ''}`
+    ),
+
+  getActiveModels: () =>
+    request<Array<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean; extra_params: string | null }>>(
+      '/internal/models/active'
+    ),
+
+  createModel: (data: { model_type: string; provider: string; model_name: string; base_url?: string; api_key?: string; extra_params?: string }) =>
+    request<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean }>(
+      '/internal/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  updateModel: (id: string, data: { provider?: string; model_name?: string; base_url?: string; api_key?: string; extra_params?: string }) =>
+    request<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean }>(
+      `/internal/models/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  deleteModel: (id: string) =>
+    request<{ status: string }>(`/internal/models/${id}`, { method: 'DELETE' }),
+
+  activateModel: (id: string) =>
+    request<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean }>(
+      `/internal/models/${id}/activate`, { method: 'PUT' }
+    ),
+
+  testModel: (data: { model_type: string; provider: string; model_name: string; base_url?: string; api_key?: string }) =>
+    request<{ success: boolean; message: string }>('/internal/models/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+
+  // --- Knowledge Graphs ---
+
+  createKnowledgeGraph: (kbId: string) =>
+    request<{ id: string; status: string }>(`/internal/kbs/${kbId}/knowledge-graphs`, {
+      method: 'POST',
+    }),
+
+  listKnowledgeGraphs: (kbId: string) =>
+    request<Array<{ id: string; name: string; node_count: number; edge_count: number; status: string; error_message: string | null; created_at: string | null }>>(
+      `/internal/kbs/${kbId}/knowledge-graphs`
+    ),
+
+  getKnowledgeGraph: (kbId: string, graphId: string) =>
+    request<any>(`/internal/kbs/${kbId}/knowledge-graphs/${graphId}`),
+
+  deleteKnowledgeGraph: (kbId: string, graphId: string) =>
+    request<{ status: string }>(`/internal/kbs/${kbId}/knowledge-graphs/${graphId}`, { method: 'DELETE' }),
 };

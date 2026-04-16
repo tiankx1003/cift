@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Button,
   Table,
   Upload,
   Input,
+  InputNumber,
   Typography,
   message,
   Popconfirm,
@@ -19,6 +20,8 @@ import {
   Progress,
   Statistic,
   Modal,
+  Form,
+  Select,
 } from 'antd';
 import {
   UploadOutlined,
@@ -30,6 +33,10 @@ import {
   DatabaseOutlined,
   AppstoreOutlined,
   EyeOutlined,
+  ScissorOutlined,
+  PlusOutlined,
+  EditOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
@@ -80,6 +87,14 @@ export default function KbDetail() {
   const [chunksModalOpen, setChunksModalOpen] = useState(false);
   const [chunksData, setChunksData] = useState<api.ChunksResponse | null>(null);
   const [chunksLoading, setChunksLoading] = useState(false);
+
+  const [chunkModalOpen, setChunkModalOpen] = useState(false);
+  const [chunkingDocId, setChunkingDocId] = useState<string>('');
+  const [chunking, setChunking] = useState(false);
+  const [chunkConfigs, setChunkConfigs] = useState<api.ChunkConfigInfo[]>([]);
+
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<api.ChunkConfigInfo | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!kbId) return;
@@ -161,6 +176,88 @@ export default function KbDetail() {
       setChunksModalOpen(false);
     } finally {
       setChunksLoading(false);
+    }
+  };
+
+  const fetchChunkConfigs = useCallback(async () => {
+    if (!kbId) return;
+    try {
+      const configs = await api.listChunkConfigs(kbId);
+      setChunkConfigs(configs);
+    } catch { /* ignore */ }
+  }, [kbId]);
+
+  useEffect(() => { fetchChunkConfigs(); }, [fetchChunkConfigs]);
+
+  const openChunkModal = async (docId: string) => {
+    setChunkingDocId(docId);
+    setChunkModalOpen(true);
+    await fetchChunkConfigs();
+  };
+
+  const handleChunk = async (values: any) => {
+    if (!kbId) return;
+    try {
+      setChunking(true);
+      const body: any = {};
+      if (values.config_id) {
+        body.config_id = values.config_id;
+      } else {
+        body.chunk_size = values.chunk_size || 800;
+        body.chunk_overlap = values.chunk_overlap || 200;
+        body.separators = values.separators || '';
+      }
+      const res = await api.chunkDocument(kbId, chunkingDocId, body);
+      if (res.status === 'completed') {
+        message.success(`分段完成，生成 ${res.chunk_count} 个分块`);
+      } else {
+        message.error(`分段失败`);
+      }
+      setChunkModalOpen(false);
+      fetchData();
+    } catch (e: any) {
+      message.error(e.message);
+    } finally {
+      setChunking(false);
+    }
+  };
+
+  const handleSaveConfig = async (values: any) => {
+    if (!kbId) return;
+    try {
+      if (editingConfig) {
+        await api.updateChunkConfig(kbId, editingConfig.id, values);
+        message.success('配置已更新');
+      } else {
+        await api.createChunkConfig(kbId, values);
+        message.success('配置已创建');
+      }
+      setConfigModalOpen(false);
+      setEditingConfig(null);
+      fetchChunkConfigs();
+    } catch (e: any) {
+      message.error(e.message);
+    }
+  };
+
+  const handleSetDefault = async (configId: string) => {
+    if (!kbId) return;
+    try {
+      await api.setDefaultChunkConfig(kbId, configId);
+      fetchChunkConfigs();
+    } catch (e: any) {
+      message.error(e.message);
+    }
+  };
+
+  const handleDeleteConfig = async (configId: string) => {
+    if (!kbId) return;
+    try {
+      await api.deleteChunkConfig(kbId, configId);
+      message.success('已删除');
+      fetchChunkConfigs();
+    } catch (e: any) {
+      message.error(e.message);
     }
   };
 
@@ -297,7 +394,11 @@ export default function KbDetail() {
                 render: (name: string, record: api.DocumentInfo) => (
                   <span>
                     <span style={{ marginRight: 8 }}>{fileTypeIcon(record.file_type)}</span>
-                    {name}
+                    {record.status === 'completed' && record.chunk_count > 0 ? (
+                      <Link to={`/kb/${kbId}/documents/${record.doc_id}/preview`}>{name}</Link>
+                    ) : (
+                      name
+                    )}
                   </span>
                 ),
               },
@@ -320,8 +421,8 @@ export default function KbDetail() {
                 width: 80,
                 align: 'center',
                 render: (s: string) => (
-                  <Tag color={s === 'completed' ? 'green' : s === 'failed' ? 'red' : 'blue'}>
-                    {s === 'completed' ? '完成' : s === 'failed' ? '失败' : '处理中'}
+                  <Tag color={s === 'completed' ? 'green' : s === 'failed' || s === 'parse_failed' ? 'red' : s === 'uploaded' ? 'blue' : 'orange'}>
+                    {s === 'completed' ? '完成' : s === 'failed' || s === 'parse_failed' ? '失败' : s === 'uploaded' ? '待分段' : '处理中'}
                   </Tag>
                 ),
               },
@@ -337,6 +438,16 @@ export default function KbDetail() {
                 align: 'center',
                 render: (_: unknown, record: api.DocumentInfo) => (
                   <Space size="small">
+                    {record.status === 'uploaded' && (
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<ScissorOutlined />}
+                        onClick={() => openChunkModal(record.doc_id)}
+                      >
+                        分段
+                      </Button>
+                    )}
                     {record.status === 'completed' && record.chunk_count > 0 && (
                       <Button
                         size="small"
@@ -366,7 +477,7 @@ export default function KbDetail() {
           </span>
         }
         size="small"
-        style={{ borderRadius: 8 }}
+        style={{ marginBottom: 24, borderRadius: 8 }}
       >
         <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
           <Input
@@ -424,6 +535,152 @@ export default function KbDetail() {
           )}
         />
       </Card>
+
+      {/* Chunk Configs */}
+      <Card
+        title={
+          <span>
+            <ScissorOutlined style={{ marginRight: 8 }} />
+            分段策略
+          </span>
+        }
+        extra={
+          <Button
+            size="small"
+            icon={<PlusOutlined />}
+            onClick={() => { setEditingConfig(null); setConfigModalOpen(true); }}
+          >
+            新建配置
+          </Button>
+        }
+        size="small"
+        style={{ marginBottom: 24, borderRadius: 8 }}
+      >
+        {chunkConfigs.length === 0 ? (
+          <Empty description="暂无分段配置" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        ) : (
+          <Table
+            dataSource={chunkConfigs}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            columns={[
+              { title: '名称', dataIndex: 'name' },
+              { title: '大小', dataIndex: 'chunk_size', width: 70, align: 'center' },
+              { title: '重叠', dataIndex: 'chunk_overlap', width: 70, align: 'center' },
+              { title: '分隔符', dataIndex: 'separators', width: 100, ellipsis: true, render: (v: string) => v || '-' },
+              {
+                title: '默认',
+                dataIndex: 'is_default',
+                width: 60,
+                align: 'center',
+                render: (v: boolean) => v ? <Tag color="blue">默认</Tag> : '-',
+              },
+              {
+                title: '操作',
+                width: 140,
+                align: 'center',
+                render: (_: unknown, record: api.ChunkConfigInfo) => (
+                  <Space size={4}>
+                    {!record.is_default && (
+                      <Button size="small" type="link" icon={<StarOutlined />} onClick={() => handleSetDefault(record.id)}>默认</Button>
+                    )}
+                    <Button size="small" type="link" icon={<EditOutlined />} onClick={() => { setEditingConfig(record); setConfigModalOpen(true); }} />
+                    <Popconfirm title="确认删除？" onConfirm={() => handleDeleteConfig(record.id)}>
+                      <Button size="small" type="link" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        )}
+      </Card>
+
+      {/* Chunk Document Modal */}
+      <Modal
+        title="执行分段"
+        open={chunkModalOpen}
+        onCancel={() => setChunkModalOpen(false)}
+        footer={null}
+        width={500}
+        destroyOnClose
+      >
+        <Form layout="vertical" onFinish={handleChunk} autoComplete="off">
+          <Form.Item name="config_id" label="使用已保存配置">
+            <Select
+              allowClear
+              placeholder="选择已保存的配置，或留空自定义"
+              options={chunkConfigs.map(c => ({
+                value: c.id,
+                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap})`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label="自定义参数（未选择配置时生效）">
+            <Input.Group compact>
+              <Form.Item name="chunk_size" noStyle>
+                <InputNumber placeholder="大小 800" style={{ width: '33%' }} min={100} />
+              </Form.Item>
+              <Form.Item name="chunk_overlap" noStyle>
+                <InputNumber placeholder="重叠 200" style={{ width: '33%' }} min={0} />
+              </Form.Item>
+              <Form.Item name="separators" noStyle>
+                <Input placeholder="分隔符" style={{ width: '34%' }} />
+              </Form.Item>
+            </Input.Group>
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Button onClick={() => setChunkModalOpen(false)} style={{ marginRight: 8 }}>取消</Button>
+            <Button type="primary" htmlType="submit" loading={chunking}>执行分段</Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Chunk Config Create/Edit Modal */}
+      <Modal
+        title={editingConfig ? '编辑分段配置' : '新建分段配置'}
+        open={configModalOpen}
+        onCancel={() => { setConfigModalOpen(false); setEditingConfig(null); }}
+        footer={null}
+        width={480}
+        destroyOnClose
+      >
+        <Form
+          layout="vertical"
+          onFinish={handleSaveConfig}
+          autoComplete="off"
+          initialValues={editingConfig ? {
+            name: editingConfig.name,
+            chunk_size: editingConfig.chunk_size,
+            chunk_overlap: editingConfig.chunk_overlap,
+            separators: editingConfig.separators,
+          } : { chunk_size: 800, chunk_overlap: 200, separators: '' }}
+        >
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input placeholder="例如：默认分段" />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="chunk_size" label="分块大小">
+                <InputNumber min={100} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="chunk_overlap" label="重叠长度">
+                <InputNumber min={0} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="separators" label="自定义分隔符（逗号分隔）">
+            <Input placeholder="如: \\n\\n,##" />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Button onClick={() => { setConfigModalOpen(false); setEditingConfig(null); }} style={{ marginRight: 8 }}>取消</Button>
+            <Button type="primary" htmlType="submit">{editingConfig ? '保存' : '创建'}</Button>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* Chunks Modal */}
       <Modal

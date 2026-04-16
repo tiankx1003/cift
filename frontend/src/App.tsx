@@ -5,6 +5,9 @@ import BasicLayout from './components/BasicLayout';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import KbDetail from './pages/KbDetail';
+import Manage from './pages/Manage';
+import ChunkPreview from './pages/ChunkPreview';
+import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 
 export default function App() {
   return (
@@ -24,6 +27,9 @@ export default function App() {
             <Route element={<BasicLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/kb/:kbId" element={<KbDetail />} />
+              <Route path="/manage" element={<Manage />} />
+              <Route path="/kb/:kbId/documents/:docId/preview" element={<ChunkPreview />} />
+              <Route path="/graph" element={<KnowledgeGraphPage />} />
             </Route>
           </Routes>
         </BrowserRouter>

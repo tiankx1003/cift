@@ -1,7 +1,6 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.schemas import UploadResponse
@@ -9,10 +8,6 @@ from ..services import (
     get_minio_client,
     upload_file as minio_upload,
     get_parser,
-    make_chunks,
-    get_chroma_client,
-    get_or_create_collection,
-    create_embedding_provider,
     get_db,
     KnowledgeBase,
     Document,
@@ -68,7 +63,7 @@ async def upload_document(
     doc = Document(
         id=doc_id, kb_id=kb_id, filename=filename,
         file_type=file_type, file_size=len(file_bytes),
-        storage_key=storage_key, status="parsing",
+        storage_key=storage_key, status="uploaded",
     )
     db.add(doc)
     await db.commit()
@@ -80,57 +75,37 @@ async def upload_document(
     except Exception as e:
         logger.warning(f"MinIO upload skipped: {e}")
 
-    # --- parse → chunk → embed → store ---
+    # --- parse only (no chunking / embedding) ---
     try:
         parser = get_parser(file_type)
         text = parser.parse(file_bytes)
 
         if not text.strip():
-            doc.status = "completed"
-            doc.chunk_count = 0
+            doc.status = "uploaded"
+            doc.extracted_text = ""
             await db.commit()
             return UploadResponse(
                 doc_id=doc_id, kb_id=kb_id, filename=filename,
                 file_type=file_type, file_size=len(file_bytes),
-                storage_key=storage_key, status="completed", chunk_count=0,
+                storage_key=storage_key, status="uploaded", chunk_count=0,
             )
 
-        chunks = make_chunks(text, file_type)
-        provider = create_embedding_provider(settings)
-        texts = [c["content"] for c in chunks]
-        embeddings = await provider.embed(texts)
-
-        chroma = get_chroma_client(settings)
-        collection = get_or_create_collection(chroma, kb_id, provider.dimension)
-        collection.add(
-            ids=[c["id"] for c in chunks],
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=[
-                {"doc_id": doc_id, "chunk_index": c["metadata"]["chunk_index"]}
-                for c in chunks
-            ],
-        )
-
-        # Update document record
-        doc.status = "completed"
-        doc.chunk_count = len(chunks)
-        kb.doc_count = kb.doc_count + 1
+        doc.extracted_text = text
         await db.commit()
 
-        logger.info(f"Uploaded doc={doc_id}, chunks={len(chunks)}")
+        logger.info(f"Uploaded doc={doc_id}, parsed {len(text)} chars")
         return UploadResponse(
             doc_id=doc_id, kb_id=kb_id, filename=filename,
             file_type=file_type, file_size=len(file_bytes),
-            storage_key=storage_key, status="completed", chunk_count=len(chunks),
+            storage_key=storage_key, status="uploaded", chunk_count=0,
         )
     except Exception as e:
         logger.error(f"Upload parse failed doc={doc_id}: {e}")
-        doc.status = "failed"
+        doc.status = "parse_failed"
         doc.error_message = str(e)
         await db.commit()
         return UploadResponse(
             doc_id=doc_id, kb_id=kb_id, filename=filename,
             file_type=file_type, file_size=len(file_bytes),
-            storage_key=storage_key, status="failed", error_message=str(e),
+            storage_key=storage_key, status="parse_failed", error_message=str(e),
         )

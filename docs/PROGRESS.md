@@ -2,28 +2,46 @@
 
 ## 2026-04-17
 
-### 完成
-- [x] **搜索结果关键词高亮** — 在知识库详情页的语义搜索结果中高亮匹配关键词
-  - `KbDetail.tsx` 新增 `highlightText` 工具函数，使用 `indexOf` 实现大小写不敏感匹配
-  - 搜索结果中匹配文本以黄色背景 `<mark>` 标签高亮显示
-  - 空查询或无匹配时正常显示原文
-- [x] **分块可视化（查看文档分块结果）** — 全栈三层实现
-  - Python 新增 `GET /internal/documents/{doc_id}/chunks?kb_id={kb_id}` 接口，从 ChromaDB 按 doc_id 查询分块
-  - Node 新增 `GET /api/kbs/:kbId/documents/:docId/chunks` 代理接口，含 JWT 认证和权限校验
-  - 前端 `api.ts` 新增 `ChunksResponse` 类型和 `getDocumentChunks` 方法
-  - 前端 `KbDetail.tsx` 文档列表新增「分块」按钮（仅 completed 且 chunk_count > 0 显示），点击弹出 Modal 展示分块详情
+### Phase 2 完成
+
+- [x] **TASK 005: 搜索结果关键词高亮** — `highlightText` 函数，indexOf 大小写不敏感，`<mark>` 黄色背景
+- [x] **TASK 006: 分块可视化** — Python chunks 接口 + Node 代理 + 前端 Modal 查看分块
+- [x] **TASK 007: 分段策略配置** — 解耦上传和分段
+  - PostgreSQL 新增 `chunk_configs` 表、Document 表新增 `extracted_text` 列
+  - 上传后只做解析存储文本，不再自动分段和 embedding
+  - 新增分段配置 CRUD（chunk_size / chunk_overlap / separators）
+  - 新增 `POST /internal/documents/{doc_id}/chunk` 执行分段 + embedding
+  - 前端文档列表新增「分段」按钮 + 分段策略管理 Card
+- [x] **TASK 008: 模型管理** — LLM / Embedding / Rerank 模型配置
+  - PostgreSQL 新增 `model_configs` 表
+  - Python 新增 rerank provider（Ollama / OpenAI）、模型配置 CRUD + 测试连接
+  - 前端左侧边栏「管理」页面，三 Tab 管理 LLM / Embedding / Rerank 配置
+- [x] **TASK 009: 分块原文对照预览** — 左右分栏预览
+  - 扩展 chunks 接口返回 `extracted_text` + `start_offset` / `end_offset`
+  - `make_chunks` 返回值新增 offset 字段
+  - 前端新增 `ChunkPreview` 页面：左侧分块列表、右侧原文高亮、自动滚动、禁止复制
+  - 文档列表文件名可点击跳转预览
+- [x] **TASK 010: 知识图谱** — LLM 实体抽取 + 可视化
+  - PostgreSQL 新增 `knowledge_graphs` 表
+  - Python 新增 LLM 客户端（OpenAI 兼容）、图谱构建异步任务（NetworkX）
+  - Node 新增图谱 CRUD 代理
+  - 前端左侧边栏「知识图谱」页面，SVG 可视化，按实体类型颜色区分
+  - `pyproject.toml` 新增 `networkx` 依赖
 
 ### 新增文件
-- `services/python/app/routers/chunks.py` — 分块查询路由
-
-### 修改文件
-- `frontend/src/pages/KbDetail.tsx` — 高亮函数 + 分块 Modal
-- `frontend/src/api.ts` — 分块 API 接口
-- `services/python/app/routers/__init__.py` — 注册 chunks_router
-- `services/python/app/main.py` — 挂载 chunks_router
-- `services/python/app/models/schemas.py` — ChunkInfo / ChunksResponse 模型
-- `services/node/src/routes/documents.ts` — 分块代理路由
-- `services/node/src/services/pythonClient.ts` — getDocumentChunks 方法
+- `services/python/app/routers/chunks.py` — 分块查询
+- `services/python/app/routers/chunking.py` — 执行分段
+- `services/python/app/routers/chunk_configs.py` — 分段配置 CRUD
+- `services/python/app/routers/model_configs.py` — 模型配置 CRUD + 测试
+- `services/python/app/routers/knowledge_graphs.py` — 知识图谱构建 + CRUD
+- `services/python/app/services/rerank/` — Rerank provider（base / ollama / openai / factory）
+- `services/python/app/services/llm/` — LLM 客户端（base / openai / factory）
+- `services/node/src/routes/chunkConfigs.ts` — 分段配置代理
+- `services/node/src/routes/modelConfigs.ts` — 模型配置代理
+- `services/node/src/routes/knowledgeGraphs.ts` — 知识图谱代理
+- `frontend/src/pages/Manage.tsx` — 模型管理页面
+- `frontend/src/pages/ChunkPreview.tsx` — 分块对照预览页面
+- `frontend/src/pages/KnowledgeGraphPage.tsx` — 知识图谱页面
 
 ## 2026-04-16
 
@@ -75,6 +93,18 @@
 - 浏览器访问 `http://localhost:80` 即可使用
 - PostgreSQL 存储元数据，ChromaDB 只负责向量存储
 - MinIO 存储原始文件
+
+### Phase 2 路线图（2026-04-17 规划）— 全部完成 ✅
+
+| # | 功能 | 涉及层 | 复杂度 | 状态 |
+|---|------|--------|--------|------|
+| A | 分段策略配置 | 前端 + Python | 中 | ✅ TASK 007 |
+| B | 模型管理 | 前端 + Node + Python | 中 | ✅ TASK 008 |
+| C | 分块原文对照预览 | 前端 + Python | 高 | ✅ TASK 009 |
+| D | 知识图谱 | 前端 + Python | 高 | ✅ TASK 010 |
+
+依赖关系：A → B（不同 embedding 模型对 token 长度限制不同）
+技术选型待定：知识图谱（D）待调研 Neo4j / NetworkX + D3.js / ECharts 等方案
 
 ### 下一步（2026-04-15 规划）
 

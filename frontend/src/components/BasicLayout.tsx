@@ -6,6 +6,7 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { Dropdown, theme, Spin } from 'antd';
 import type { MenuProps } from 'antd';
@@ -18,6 +19,16 @@ const menuRoutes = {
       path: '/',
       name: '知识库',
       icon: <DatabaseOutlined />,
+    },
+    {
+      path: '/graph',
+      name: '知识图谱',
+      icon: <ApartmentOutlined />,
+    },
+    {
+      path: '/manage',
+      name: '管理',
+      icon: <SettingOutlined />,
     },
   ],
 };

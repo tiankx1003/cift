@@ -6,10 +6,13 @@
 
 - 用户注册 / 登录（JWT 认证）
 - 知识库管理（创建、查看、删除）
-- 文件上传（支持 `.txt`、`.md`，multipart/form-data）
-- 文档自动解析与文本分块（Markdown 按标题拆分，纯文本固定窗口）
+- 文件上传（支持 `.txt`、`.md`、`.pdf`、`.docx`，multipart/form-data）
+- 分段策略配置（自定义分块大小、重叠长度、分隔符）
+- 模型管理（LLM / Embedding / Rerank 模型配置与连接测试）
+- 分块原文对照预览（左右分栏，高亮对应区域）
 - 向量嵌入（支持 Ollama、OpenAI、MLX、llama.cpp 等多种 Provider）
-- 语义搜索（基于向量相似度，返回匹配片段与置信度）
+- 语义搜索（基于向量相似度，返回匹配片段与置信度，关键词高亮）
+- 知识图谱（LLM 实体抽取，可视化展示实体关系）
 - Docker Compose 一键部署
 
 ## 技术栈
@@ -18,7 +21,7 @@
 |---|---|
 | 前端 | React 19、TypeScript、Vite、Ant Design 6、ProLayout |
 | API 网关 | Node.js 22、Express、TypeScript、JWT |
-| 后端 | Python 3.12、FastAPI、SQLAlchemy 2.0 (async) |
+| 后端 | Python 3.12、FastAPI、SQLAlchemy 2.0 (async)、NetworkX |
 | 关系数据库 | PostgreSQL 16 |
 | 向量数据库 | ChromaDB |
 | 对象存储 | MinIO |
@@ -150,7 +153,10 @@ cift/
 │   │   └── pages/
 │   │       ├── Login.tsx           # 登录 / 注册
 │   │       ├── Home.tsx            # 知识库列表
-│   │       └── KbDetail.tsx        # 知识库详情（上传/文档/搜索）
+│   │       ├── KbDetail.tsx        # 知识库详情（上传/文档/搜索/分段）
+│   │       ├── ChunkPreview.tsx    # 分块原文对照预览
+│   │       ├── Manage.tsx          # 模型管理
+│   │       └── KnowledgeGraphPage.tsx # 知识图谱
 │   └── ...
 ├── services/
 │   ├── node/                       # Node.js API 网关
@@ -162,8 +168,11 @@ cift/
 │   │       ├── routes/
 │   │       │   ├── auth.ts         # 认证（注册/登录/me）
 │   │       │   ├── knowledgeBases.ts  # 知识库 CRUD
-│   │       │   ├── documents.ts    # 文件上传/列表/删除
-│   │       │   └── search.ts       # 语义搜索代理
+│   │       │   ├── documents.ts    # 文件上传/列表/删除/分块
+│   │       │   ├── search.ts       # 语义搜索代理
+│   │       │   ├── chunkConfigs.ts # 分段配置代理
+│   │       │   ├── modelConfigs.ts # 模型配置代理
+│   │       │   └── knowledgeGraphs.ts # 知识图谱代理
 │   │       ├── middleware/
 │   │       │   ├── auth.ts         # JWT 认证中间件
 │   │       │   └── errorHandler.ts # 全局错误处理
@@ -178,7 +187,12 @@ cift/
 │           ├── models/schemas.py   # Pydantic 请求/响应模型
 │           ├── routers/
 │           │   ├── kbs.py          # 知识库 CRUD + 文档列表
-│           │   ├── upload.py       # 文件上传（完整管道）
+│           │   ├── upload.py       # 文件上传（解析 → 存储）
+│           │   ├── chunking.py     # 执行分段 + embedding
+│           │   ├── chunk_configs.py # 分段配置 CRUD
+│           │   ├── chunks.py       # 分块查询
+│           │   ├── model_configs.py # 模型配置 CRUD + 测试
+│           │   ├── knowledge_graphs.py # 知识图谱构建 + CRUD
 │           │   ├── parse.py        # 解析接口
 │           │   ├── search.py       # 语义搜索
 │           │   └── vectors.py      # 向量删除
@@ -186,9 +200,11 @@ cift/
 │           │   ├── database.py     # SQLAlchemy ORM (PostgreSQL)
 │           │   ├── chroma_client.py    # ChromaDB 客户端
 │           │   ├── minio_client.py     # MinIO 客户端
-│           │   ├── chunker.py      # 文本分块
+│           │   ├── chunker.py      # 文本分块（支持自定义分隔符）
 │           │   ├── embedding/      # 向量嵌入 Provider 抽象
-│           │   └── parser/         # 文档解析
+│           │   ├── rerank/         # Rerank Provider 抽象
+│           │   ├── llm/            # LLM 客户端（OpenAI 兼容）
+│           │   └── parser/         # 文档解析（txt/md/pdf/docx）
 │           └── utils/
 │               ├── config.py       # pydantic-settings 配置
 │               └── logger.py       # 结构化日志
@@ -223,12 +239,45 @@ cift/
 | GET | `/api/kbs/{kbId}/documents` | 列出文档 |
 | POST | `/api/kbs/{kbId}/documents/upload` | 上传文件（multipart/form-data） |
 | DELETE | `/api/kbs/{kbId}/documents/{docId}` | 删除文档及向量 |
+| GET | `/api/kbs/{kbId}/documents/{docId}/chunks` | 查看文档分块 |
+| POST | `/api/kbs/{kbId}/documents/{docId}/chunk` | 执行分段 |
 
 ### 搜索
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/kbs/{kbId}/search` | 语义搜索 |
+
+### 分段配置
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/kbs/{kbId}/chunk-configs` | 列出分段配置 |
+| POST | `/api/kbs/{kbId}/chunk-configs` | 创建分段配置 |
+| PUT | `/api/kbs/{kbId}/chunk-configs/{id}` | 更新分段配置 |
+| DELETE | `/api/kbs/{kbId}/chunk-configs/{id}` | 删除分段配置 |
+| PUT | `/api/kbs/{kbId}/chunk-configs/{id}/default` | 设为默认 |
+
+### 模型管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/models` | 列出模型配置 |
+| POST | `/api/models` | 创建模型配置 |
+| PUT | `/api/models/{id}` | 更新模型配置 |
+| DELETE | `/api/models/{id}` | 删除模型配置 |
+| PUT | `/api/models/{id}/activate` | 设为活跃 |
+| GET | `/api/models/active` | 获取所有活跃配置 |
+| POST | `/api/models/test` | 测试模型连接 |
+
+### 知识图谱
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/kbs/{kbId}/knowledge-graphs` | 创建并构建图谱 |
+| GET | `/api/kbs/{kbId}/knowledge-graphs` | 列出图谱 |
+| GET | `/api/kbs/{kbId}/knowledge-graphs/{id}` | 获取图谱数据 |
+| DELETE | `/api/kbs/{kbId}/knowledge-graphs/{id}` | 删除图谱 |
 
 ## 配置说明
 

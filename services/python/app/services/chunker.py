@@ -7,12 +7,45 @@ import uuid
 class TextChunker:
     """Split text into overlapping chunks."""
 
-    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200, separators: list[str] | None = None):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
+        self.separators = separators
 
     def chunk_text(self, text: str) -> list[str]:
+        if self.separators:
+            return self._separator_chunk(text)
         return self._fixed_chunk(text)
+
+    def _separator_chunk(self, text: str) -> list[str]:
+        # Split by first separator, then further by next separators
+        parts = [text]
+        for sep in self.separators:
+            new_parts = []
+            for part in parts:
+                new_parts.extend(part.split(sep))
+            parts = new_parts
+
+        # Merge small parts, split large parts
+        chunks: list[str] = []
+        current = ""
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            if len(current) + len(part) + 1 <= self.chunk_size:
+                current = current + "\n" + part if current else part
+            else:
+                if current:
+                    chunks.append(current)
+                if len(part) > self.chunk_size:
+                    chunks.extend(self._fixed_chunk(part))
+                    current = ""
+                else:
+                    current = part
+        if current:
+            chunks.append(current)
+        return chunks
 
     def _fixed_chunk(self, text: str) -> list[str]:
         text = text.strip()
@@ -68,19 +101,44 @@ class MarkdownChunker:
         return sections
 
 
-def make_chunks(text: str, file_type: str) -> list[dict]:
-    """Chunk text and return list of {id, content, metadata} dicts."""
+def _find_offset(text: str, chunk: str, start_from: int = 0) -> int:
+    """Find the offset of chunk in text starting from start_from."""
+    return text.find(chunk, start_from)
+
+
+def make_chunks(
+    text: str,
+    file_type: str,
+    chunk_size: int = 800,
+    chunk_overlap: int = 200,
+    separators: str = "",
+) -> list[dict]:
+    """Chunk text and return list of {id, content, metadata, start_offset, end_offset} dicts."""
+    sep_list = [s.strip() for s in separators.split(",") if s.strip()] if separators else None
+
     if file_type == "md":
-        chunker = MarkdownChunker()
+        chunker = MarkdownChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     else:
-        chunker = TextChunker()
+        chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=sep_list)
 
     raw_chunks = chunker.chunk_text(text)
-    return [
-        {
+
+    # Compute offsets by finding each chunk in the original text
+    result = []
+    search_from = 0
+    for i, chunk in enumerate(raw_chunks):
+        offset = _find_offset(text, chunk, search_from)
+        if offset == -1:
+            offset = search_from
+        start_offset = offset
+        end_offset = offset + len(chunk)
+        result.append({
             "id": str(uuid.uuid4()),
             "content": chunk,
             "metadata": {"chunk_index": i},
-        }
-        for i, chunk in enumerate(raw_chunks)
-    ]
+            "start_offset": start_offset,
+            "end_offset": end_offset,
+        })
+        search_from = end_offset
+
+    return result

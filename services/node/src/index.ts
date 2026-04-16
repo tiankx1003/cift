@@ -8,6 +8,9 @@ import { authRouter } from './routes/auth.js';
 import { kbRouter } from './routes/knowledgeBases.js';
 import { docRouter } from './routes/documents.js';
 import { searchRouter } from './routes/search.js';
+import { chunkConfigRouter } from './routes/chunkConfigs.js';
+import { modelConfigRouter } from './routes/modelConfigs.js';
+import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
 
 const app = express();
 
@@ -19,6 +22,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/kbs', kbRouter);
 app.use('/api/kbs/:kbId/documents', docRouter);
 app.use('/api/kbs/:kbId/search', searchRouter);
+app.use('/api/kbs/:kbId/chunk-configs', chunkConfigRouter);
+app.use('/api/models', modelConfigRouter);
+app.use('/api/kbs/:kbId/knowledge-graphs', knowledgeGraphRouter);
 
 app.use(errorHandler);
 
