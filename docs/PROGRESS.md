@@ -1,5 +1,30 @@
 # CIFT - 开发进度
 
+## 2026-04-17
+
+### 完成
+- [x] **搜索结果关键词高亮** — 在知识库详情页的语义搜索结果中高亮匹配关键词
+  - `KbDetail.tsx` 新增 `highlightText` 工具函数，使用 `indexOf` 实现大小写不敏感匹配
+  - 搜索结果中匹配文本以黄色背景 `<mark>` 标签高亮显示
+  - 空查询或无匹配时正常显示原文
+- [x] **分块可视化（查看文档分块结果）** — 全栈三层实现
+  - Python 新增 `GET /internal/documents/{doc_id}/chunks?kb_id={kb_id}` 接口，从 ChromaDB 按 doc_id 查询分块
+  - Node 新增 `GET /api/kbs/:kbId/documents/:docId/chunks` 代理接口，含 JWT 认证和权限校验
+  - 前端 `api.ts` 新增 `ChunksResponse` 类型和 `getDocumentChunks` 方法
+  - 前端 `KbDetail.tsx` 文档列表新增「分块」按钮（仅 completed 且 chunk_count > 0 显示），点击弹出 Modal 展示分块详情
+
+### 新增文件
+- `services/python/app/routers/chunks.py` — 分块查询路由
+
+### 修改文件
+- `frontend/src/pages/KbDetail.tsx` — 高亮函数 + 分块 Modal
+- `frontend/src/api.ts` — 分块 API 接口
+- `services/python/app/routers/__init__.py` — 注册 chunks_router
+- `services/python/app/main.py` — 挂载 chunks_router
+- `services/python/app/models/schemas.py` — ChunkInfo / ChunksResponse 模型
+- `services/node/src/routes/documents.ts` — 分块代理路由
+- `services/node/src/services/pythonClient.ts` — getDocumentChunks 方法
+
 ## 2026-04-16
 
 ### 完成
@@ -55,11 +80,11 @@
 
 **🔥 高优先级（核心体验提升）**
 - [x] 支持更多文件格式（PDF、Word）— 2026-04-16 完成
-- [ ] 搜索结果关键词高亮
+- [x] 搜索结果关键词高亮 — 2026-04-17 完成
 - [ ] 文档解析状态展示（解析中/成功/失败）
 
 **⭐ 中优先级（功能完善）**
-- [ ] 分块可视化（查看文档分块结果）
+- [x] 分块可视化（查看文档分块结果）— 2026-04-17 完成
 - [ ] 知识库统计（文档数、chunk数、存储占用）
 - [ ] 文件格式扩展（CSV、JSON 等结构化数据）
 

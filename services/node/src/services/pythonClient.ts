@@ -70,4 +70,9 @@ export const pythonClient = {
       body: JSON.stringify({ kb_id: kbId, query, top_k: topK }),
     });
   },
+
+  getDocumentChunks: (docId: string, kbId: string) =>
+    request<{ chunks: Array<{ chunk_index: number; content: string; char_count: number }> }>(
+      `/internal/documents/${docId}/chunks?kb_id=${kbId}`
+    ),
 };

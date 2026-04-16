@@ -18,6 +18,7 @@ import {
   Col,
   Progress,
   Statistic,
+  Modal,
 } from 'antd';
 import {
   UploadOutlined,
@@ -28,10 +29,39 @@ import {
   FileMarkdownOutlined,
   DatabaseOutlined,
   AppstoreOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
 const { Title, Text, Paragraph } = Typography;
+
+function highlightText(text: string, query: string): React.ReactNode {
+  const trimmed = query.trim();
+  if (!trimmed) return text;
+  const lowerQuery = trimmed.toLowerCase();
+  const lowerText = text.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let searchFrom = 0;
+  while (searchFrom < lowerText.length) {
+    const idx = lowerText.indexOf(lowerQuery, searchFrom);
+    if (idx === -1) break;
+    if (idx > lastIndex) {
+      parts.push(text.slice(lastIndex, idx));
+    }
+    parts.push(
+      <mark key={idx} style={{ background: '#fff3b0', padding: '0 2px', borderRadius: 2 }}>
+        {text.slice(idx, idx + trimmed.length)}
+      </mark>
+    );
+    lastIndex = idx + trimmed.length;
+    searchFrom = lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts.length > 0 ? <>{parts}</> : text;
+}
 
 export default function KbDetail() {
   const { kbId } = useParams<{ kbId: string }>();
@@ -46,6 +76,10 @@ export default function KbDetail() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<api.SearchResult[]>([]);
   const [searchDone, setSearchDone] = useState(false);
+
+  const [chunksModalOpen, setChunksModalOpen] = useState(false);
+  const [chunksData, setChunksData] = useState<api.ChunksResponse | null>(null);
+  const [chunksLoading, setChunksLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!kbId) return;
@@ -112,6 +146,21 @@ export default function KbDetail() {
       message.error(e.message);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleViewChunks = async (docId: string) => {
+    if (!kbId) return;
+    try {
+      setChunksLoading(true);
+      setChunksModalOpen(true);
+      const res = await api.getDocumentChunks(kbId, docId);
+      setChunksData(res);
+    } catch (e: any) {
+      message.error(e.message);
+      setChunksModalOpen(false);
+    } finally {
+      setChunksLoading(false);
     }
   };
 
@@ -284,12 +333,23 @@ export default function KbDetail() {
               },
               {
                 title: '操作',
-                width: 70,
+                width: 120,
                 align: 'center',
                 render: (_: unknown, record: api.DocumentInfo) => (
-                  <Popconfirm title="确认删除？" onConfirm={() => handleDeleteDoc(record.doc_id)}>
-                    <Button size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
+                  <Space size="small">
+                    {record.status === 'completed' && record.chunk_count > 0 && (
+                      <Button
+                        size="small"
+                        icon={<EyeOutlined />}
+                        onClick={() => handleViewChunks(record.doc_id)}
+                      >
+                        分块
+                      </Button>
+                    )}
+                    <Popconfirm title="确认删除？" onConfirm={() => handleDeleteDoc(record.doc_id)}>
+                      <Button size="small" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </Space>
                 ),
               },
             ]}
@@ -358,12 +418,56 @@ export default function KbDetail() {
                   size="small"
                   style={{ marginBottom: 8 }}
                 />
-                <Paragraph style={{ margin: 0, color: '#333' }}>{item.content}</Paragraph>
+                <Paragraph style={{ margin: 0, color: '#333' }}>{highlightText(item.content, query)}</Paragraph>
               </div>
             </List.Item>
           )}
         />
       </Card>
+
+      {/* Chunks Modal */}
+      <Modal
+        title={chunksData ? `${chunksData.filename} — 分块详情` : '分块详情'}
+        open={chunksModalOpen}
+        onCancel={() => { setChunksModalOpen(false); setChunksData(null); }}
+        footer={null}
+        width={700}
+      >
+        {chunksLoading ? (
+          <Spin style={{ display: 'block', margin: '40px auto' }} />
+        ) : chunksData ? (
+          chunksData.chunks.length === 0 ? (
+            <Empty description="暂无分块数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          ) : (
+            <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
+              {chunksData.chunks.map((chunk) => (
+                <Card
+                  key={chunk.chunk_index}
+                  size="small"
+                  style={{ marginBottom: 12, borderRadius: 6 }}
+                  title={
+                    <span>
+                      分块 #{chunk.chunk_index}
+                      <Tag style={{ marginLeft: 8 }}>{chunk.char_count} 字符</Tag>
+                    </span>
+                  }
+                >
+                  <pre style={{
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    fontFamily: 'inherit',
+                  }}>
+                    {chunk.content}
+                  </pre>
+                </Card>
+              ))}
+            </div>
+          )
+        ) : null}
+      </Modal>
     </div>
   );
 }

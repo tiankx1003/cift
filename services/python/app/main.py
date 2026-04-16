@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import parse_router, search_router, vectors_router, upload_router, kbs_router
+from .routers import parse_router, search_router, vectors_router, upload_router, kbs_router, chunks_router
 from .services import ensure_bucket, get_minio_client, init_db
 from .utils import logger
 
@@ -40,6 +40,7 @@ app.include_router(search_router)
 app.include_router(vectors_router)
 app.include_router(upload_router)
 app.include_router(kbs_router)
+app.include_router(chunks_router)
 
 
 @app.get("/health")

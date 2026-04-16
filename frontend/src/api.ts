@@ -135,3 +135,19 @@ export const search = (kbId: string, query: string, topK = 5) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, top_k: topK }),
   });
+
+// --- Chunks ---
+
+export interface ChunkInfo {
+  chunk_index: number;
+  content: string;
+  char_count: number;
+}
+
+export interface ChunksResponse {
+  filename: string;
+  chunks: ChunkInfo[];
+}
+
+export const getDocumentChunks = (kbId: string, docId: string) =>
+  request<ChunksResponse>(`/kbs/${kbId}/documents/${docId}/chunks`);

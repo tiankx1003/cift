@@ -85,3 +85,15 @@ class DocumentInfo(BaseModel):
     file_size: int
     status: str
     chunk_count: int
+
+
+# --- Chunks ---
+
+class ChunkInfo(BaseModel):
+    chunk_index: int
+    content: str
+    char_count: int
+
+
+class ChunksResponse(BaseModel):
+    chunks: list[ChunkInfo]
