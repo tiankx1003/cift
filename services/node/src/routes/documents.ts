@@ -8,8 +8,13 @@ export const docRouter = Router({ mergeParams: true });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const ALLOWED = new Set(['.txt', '.md']);
-const MIME_MAP: Record<string, string> = { '.txt': 'text/plain', '.md': 'text/markdown' };
+const ALLOWED = new Set(['.txt', '.md', '.pdf', '.docx']);
+const MIME_MAP: Record<string, string> = {
+  '.txt': 'text/plain',
+  '.md': 'text/markdown',
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+};
 
 docRouter.use(authRequired);
 
@@ -42,7 +47,7 @@ docRouter.post('/upload', upload.single('file'), async (req: Request, res: Respo
 
   const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
   if (!ALLOWED.has(ext)) {
-    res.status(400).json({ code: 400, message: `Unsupported file type '${ext}'. Allowed: .txt, .md` });
+    res.status(400).json({ code: 400, message: `Unsupported file type '${ext}'. Allowed: .txt, .md, .pdf, .docx` });
     return;
   }
 

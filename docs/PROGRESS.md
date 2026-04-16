@@ -1,5 +1,24 @@
 # CIFT - 开发进度
 
+## 2026-04-16
+
+### 完成
+- [x] **PDF 和 Word（docx）解析支持** — 扩展文件上传格式
+  - 新增 `PdfParser`（PyMuPDF / fitz，逐页提取文本）
+  - 新增 `DocxParser`（python-docx，提取段落文本）
+  - Python `parser/__init__.py` 注册新解析器
+  - Python `upload.py` 扩展 `ALLOWED_EXTENSIONS` 和 `MIME_MAP`
+  - Node `documents.ts` 同步扩展文件类型校验和 MIME 映射
+  - 前端 `KbDetail.tsx` 更新上传 accept、校验白名单、按钮文案
+  - `pyproject.toml` 新增 `pymupdf`、`python-docx` 依赖
+
+### 新增文件
+- `services/python/app/services/parser/pdf_parser.py`
+- `services/python/app/services/parser/docx_parser.py`
+
+### 待验证
+- 部分扫描版 PDF 可能提取不到文本（纯文本 PDF 正常）
+
 ## 2026-04-14
 
 ### 完成
@@ -32,11 +51,22 @@
 - PostgreSQL 存储元数据，ChromaDB 只负责向量存储
 - MinIO 存储原始文件
 
-### 下一步
-- [ ] 支持更多文件格式（PDF、Word）
-- [ ] 前端适配 Node Gateway（切换 API 地址到 :3000 /api/*）
-- [ ] Node Gateway 加入 Docker Compose
-- [ ] 生产部署优化（HTTPS、密钥管理）
+### 下一步（2026-04-15 规划）
+
+**🔥 高优先级（核心体验提升）**
+- [x] 支持更多文件格式（PDF、Word）— 2026-04-16 完成
+- [ ] 搜索结果关键词高亮
+- [ ] 文档解析状态展示（解析中/成功/失败）
+
+**⭐ 中优先级（功能完善）**
+- [ ] 分块可视化（查看文档分块结果）
+- [ ] 知识库统计（文档数、chunk数、存储占用）
+- [ ] 文件格式扩展（CSV、JSON 等结构化数据）
+
+**🔮 低优先级（生产化）**
+- [ ] HTTPS + 密钥管理
+- [ ] 多租户/权限管理（已有 user_id 隔离基础）
+- [ ] 批量上传
 
 ## Node API Gateway (`services/node/`)
 

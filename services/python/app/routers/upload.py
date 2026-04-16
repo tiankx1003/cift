@@ -22,8 +22,13 @@ from ..utils import get_settings, logger
 router = APIRouter(prefix="/internal", tags=["upload"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-ALLOWED_EXTENSIONS = {".txt", ".md"}
-MIME_MAP = {".txt": "text/plain", ".md": "text/markdown"}
+ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
+MIME_MAP = {
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 
 
 @router.post("/upload", response_model=UploadResponse)

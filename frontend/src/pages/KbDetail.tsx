@@ -69,8 +69,8 @@ export default function KbDetail() {
   const handleUpload = async (file: File) => {
     if (!kbId) return false;
     const ext = file.name.split('.').pop()?.toLowerCase();
-    if (ext !== 'txt' && ext !== 'md') {
-      message.error('仅支持 .txt 和 .md 文件');
+    if (!['txt', 'md', 'pdf', 'docx'].includes(ext || '')) {
+      message.error('仅支持 .txt、.md、.pdf、.docx 文件');
       return false;
     }
     try {
@@ -128,6 +128,7 @@ export default function KbDetail() {
 
   const fileTypeIcon = (fileType: string) => {
     if (fileType === 'md' || fileType === 'markdown') return <FileMarkdownOutlined style={{ color: '#722ed1' }} />;
+    if (fileType === 'pdf') return <FileTextOutlined style={{ color: '#f5222d' }} />;
     return <FileTextOutlined style={{ color: '#1677ff' }} />;
   };
 
@@ -207,17 +208,17 @@ export default function KbDetail() {
         style={{ marginBottom: 24, borderRadius: 8 }}
       >
         <Upload
-          accept=".txt,.md"
+          accept=".txt,.md,.pdf,.docx"
           showUploadList={false}
           beforeUpload={handleUpload}
           disabled={uploading}
         >
           <Button icon={<UploadOutlined />} loading={uploading} type="primary">
-            {uploading ? '处理中...' : '选择文件 (.txt / .md)'}
+            {uploading ? '处理中...' : '选择文件 (.txt / .md / .pdf / .docx)'}
           </Button>
         </Upload>
         <Text type="secondary" style={{ marginLeft: 12 }}>
-          支持 .txt 和 .md，最大 10MB
+          支持 .txt、.md、.pdf、.docx，最大 10MB
         </Text>
       </Card>
 
