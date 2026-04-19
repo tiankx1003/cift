@@ -81,13 +81,13 @@ async def upload_document(
         text = parser.parse(file_bytes)
 
         if not text.strip():
-            doc.status = "uploaded"
+            doc.status = "completed"
             doc.extracted_text = ""
             await db.commit()
             return UploadResponse(
                 doc_id=doc_id, kb_id=kb_id, filename=filename,
                 file_type=file_type, file_size=len(file_bytes),
-                storage_key=storage_key, status="uploaded", chunk_count=0,
+                storage_key=storage_key, status="completed", chunk_count=0,
             )
 
         doc.extracted_text = text
@@ -97,15 +97,15 @@ async def upload_document(
         return UploadResponse(
             doc_id=doc_id, kb_id=kb_id, filename=filename,
             file_type=file_type, file_size=len(file_bytes),
-            storage_key=storage_key, status="uploaded", chunk_count=0,
+            storage_key=storage_key, status="completed", chunk_count=0,
         )
     except Exception as e:
         logger.error(f"Upload parse failed doc={doc_id}: {e}")
-        doc.status = "parse_failed"
+        doc.status = "failed"
         doc.error_message = str(e)
         await db.commit()
         return UploadResponse(
             doc_id=doc_id, kb_id=kb_id, filename=filename,
             file_type=file_type, file_size=len(file_bytes),
-            storage_key=storage_key, status="parse_failed", error_message=str(e),
+            storage_key=storage_key, status="failed", error_message=str(e),
         )
