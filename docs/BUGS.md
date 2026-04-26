@@ -1,7 +1,20 @@
 # Bug 跟踪
 
 ## 待修复
-（暂无）
+
+（无）
+
+## 已修复
+
+- [x] 分段完成后向量数显示为 0，分段数正常
+  - 原因：`chunking.py` 中 `kb.doc_count` 递增条件恒为 False（`doc.chunk_count` 刚赋值为 `len(chunks)`，不可能为 0），导致 `doc_count` 从未递增。同时 `vectors.py` 删除文档时固定减 1 而非减 `doc.chunk_count`。
+  - 修复：修正 `chunking.py` 递增逻辑为 `kb.doc_count += len(chunks) - old_chunk_count`；`vectors.py` 改为按 `doc.chunk_count` 递减。
+  - 涉及文件：`services/python/app/routers/chunking.py`、`services/python/app/routers/vectors.py`
+
+- [x] 中文文件名上传后显示乱码
+  - 原因：multer 默认以 Latin-1 解码 multipart 文件名，UTF-8 中文被错误解码
+  - 修复：在 Node `documents.ts` 中将 `file.originalname` 从 Latin-1 重新编码为 UTF-8：`Buffer.from(file.originalname, 'latin1').toString('utf8')`
+  - 涉及文件：`services/node/src/routes/documents.ts`
 
 - [x] 上传文件后弹出"处理失败: null"报错，实际功能正常
   - 原因：Python upload 端点成功时返回 `status: "uploaded"` / 失败时返回 `status: "parse_failed"`，而 schema 注释约定值为 `"completed" | "failed"`。前端 `KbDetail.tsx:128` 判断 `res.status === 'completed'` 永远不成立，走入 else 分支显示 `res.error_message`（成功时为 `null`），导致弹出"处理失败: null"。
