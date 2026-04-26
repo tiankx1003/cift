@@ -476,15 +476,6 @@ export default function KbDetail() {
                         分段
                       </Button>
                     )}
-                    {record.status === 'completed' && record.chunk_count > 0 && (
-                      <Button
-                        size="small"
-                        icon={<EyeOutlined />}
-                        onClick={() => handleViewChunks(record.doc_id)}
-                      >
-                        分块
-                      </Button>
-                    )}
                     <Popconfirm title="确认删除？" onConfirm={() => handleDeleteDoc(record.doc_id)}>
                       <Button size="small" danger icon={<DeleteOutlined />} />
                     </Popconfirm>
