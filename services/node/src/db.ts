@@ -31,5 +31,18 @@ export async function migrate() {
     }
   }
 
+  // API Keys table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id VARCHAR(36) PRIMARY KEY,
+      user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      key VARCHAR(128) UNIQUE NOT NULL,
+      name VARCHAR(128) NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      last_used_at TIMESTAMP
+    )
+  `);
+
   console.log('Database migration complete');
 }

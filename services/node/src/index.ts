@@ -11,6 +11,7 @@ import { searchRouter } from './routes/search.js';
 import { chunkConfigRouter } from './routes/chunkConfigs.js';
 import { modelConfigRouter } from './routes/modelConfigs.js';
 import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
+import { apiKeyRouter } from './routes/apiKeys.js';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use('/api/kbs/:kbId/search', searchRouter);
 app.use('/api/kbs/:kbId/chunk-configs', chunkConfigRouter);
 app.use('/api/models', modelConfigRouter);
 app.use('/api/kbs/:kbId/knowledge-graphs', knowledgeGraphRouter);
+app.use('/api/api-keys', apiKeyRouter);
 
 app.use(errorHandler);
 

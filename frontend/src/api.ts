@@ -293,3 +293,35 @@ export const getKnowledgeGraph = (kbId: string, graphId: string) =>
 
 export const deleteKnowledgeGraph = (kbId: string, graphId: string) =>
   request<{ status: string }>(`/kbs/${kbId}/knowledge-graphs/${graphId}`, { method: 'DELETE' });
+
+// --- API Keys ---
+
+export interface ApiKeyInfo {
+  id: string;
+  name: string;
+  key: string; // masked
+  is_active: boolean;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface ApiKeyCreated {
+  id: string;
+  name: string;
+  key: string; // full key, shown only once
+  is_active: boolean;
+  created_at: string;
+}
+
+export const listApiKeys = () =>
+  request<ApiKeyInfo[]>('/api-keys');
+
+export const createApiKey = (name: string) =>
+  request<ApiKeyCreated>('/api-keys', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+
+export const deleteApiKey = (id: string) =>
+  request<{ deleted: boolean }>(`/api-keys/${id}`, { method: 'DELETE' });

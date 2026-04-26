@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Button, Table, Tag, Space, Modal, Form, Input, Select, Popconfirm, Card, Descriptions, message,
+  Button, Table, Tag, Space, Modal, Form, Input, Select, Popconfirm, Card, Descriptions, message, Typography,
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined, KeyOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
@@ -246,12 +246,138 @@ function ModelSection({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
   );
 }
 
+function ApiKeySection() {
+  const [keys, setKeys] = useState<api.ApiKeyInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newKey, setNewKey] = useState<api.ApiKeyCreated | null>(null);
+
+  const fetchKeys = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.listApiKeys();
+      setKeys(data);
+    } catch (e: any) {
+      message.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchKeys(); }, [fetchKeys]);
+
+  const handleCreate = async (values: any) => {
+    try {
+      const created = await api.createApiKey(values.name);
+      setNewKey(created);
+      setCreateOpen(false);
+      fetchKeys();
+    } catch (e: any) {
+      message.error(e.message);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteApiKey(id);
+      message.success('已删除');
+      fetchKeys();
+    } catch (e: any) {
+      message.error(e.message);
+    }
+  };
+
+  const copyKey = () => {
+    if (newKey) {
+      navigator.clipboard.writeText(newKey.key);
+      message.success('已复制到剪贴板');
+    }
+  };
+
+  return (
+    <Card
+      title={<span><KeyOutlined style={{ marginRight: 8 }} />API Keys</span>}
+      extra={
+        <Button size="small" icon={<PlusOutlined />} onClick={() => { setNewKey(null); setCreateOpen(true); }}>
+          创建 API Key
+        </Button>
+      }
+      size="small"
+      style={{ marginBottom: 24, borderRadius: 8 }}
+    >
+      {newKey && (
+        <div style={{
+          marginBottom: 16, padding: 12, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6,
+        }}>
+          <Typography.Text strong>新 API Key 已创建（仅显示一次）：</Typography.Text>
+          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Input value={newKey.key} readOnly size="small" style={{ fontFamily: 'monospace' }} />
+            <Button size="small" icon={<CopyOutlined />} onClick={copyKey}>复制</Button>
+          </div>
+        </div>
+      )}
+
+      <Table
+        dataSource={keys}
+        rowKey="id"
+        size="small"
+        loading={loading}
+        pagination={false}
+        columns={[
+          { title: '名称', dataIndex: 'name' },
+          { title: 'Key', dataIndex: 'key', render: (v: string) => <Typography.Text code style={{ fontSize: 12 }}>{v}</Typography.Text> },
+          {
+            title: '状态', dataIndex: 'is_active', width: 80, align: 'center',
+            render: (v: boolean) => v ? <Tag color="green">活跃</Tag> : <Tag>禁用</Tag>,
+          },
+          {
+            title: '创建时间', dataIndex: 'created_at', width: 170,
+            render: (v: string) => v ? new Date(v).toLocaleString() : '-',
+          },
+          {
+            title: '最后使用', dataIndex: 'last_used_at', width: 170,
+            render: (v: string | null) => v ? new Date(v).toLocaleString() : '未使用',
+          },
+          {
+            title: '操作', width: 80, align: 'center',
+            render: (_: unknown, record: api.ApiKeyInfo) => (
+              <Popconfirm title="确认删除此 API Key？" onConfirm={() => handleDelete(record.id)}>
+                <Button size="small" type="link" danger icon={<DeleteOutlined />} />
+              </Popconfirm>
+            ),
+          },
+        ]}
+      />
+
+      <Modal
+        title="创建 API Key"
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        footer={null}
+        width={420}
+        destroyOnClose
+      >
+        <Form layout="vertical" onFinish={handleCreate} autoComplete="off">
+          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+            <Input placeholder="例如：Dify 外部知识库" />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Button onClick={() => setCreateOpen(false)} style={{ marginRight: 8 }}>取消</Button>
+            <Button type="primary" htmlType="submit">创建</Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+}
+
 export default function Manage() {
   return (
     <div>
       <ModelSection type="llm" />
       <ModelSection type="embedding" />
       <ModelSection type="rerank" />
+      <ApiKeySection />
     </div>
   );
 }
