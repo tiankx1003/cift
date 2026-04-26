@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import { config } from '../config.js';
 import { pool } from '../db.js';
 
 declare global {
@@ -72,17 +74,12 @@ export function anyAuth(req: Request, res: Response, next: NextFunction) {
     return;
   }
 
-  // Import JWT verification inline to avoid circular deps
-  import('jsonwebtoken').then(({ default: jwt }) => {
-    import('../config.js').then(({ config }) => {
-      try {
-        const token = authHeader.slice(7);
-        const payload = jwt.verify(token, config.jwtSecret) as { userId: string; username: string };
-        req.user = { userId: payload.userId, username: payload.username };
-        next();
-      } catch {
-        res.status(401).json({ code: 40102, message: 'Invalid or expired token', details: null });
-      }
-    });
-  });
+  try {
+    const token = authHeader.slice(7);
+    const payload = jwt.verify(token, config.jwtSecret) as { userId: string; username: string };
+    req.user = { userId: payload.userId, username: payload.username };
+    next();
+  } catch {
+    res.status(401).json({ code: 40102, message: 'Invalid or expired token', details: null });
+  }
 }
