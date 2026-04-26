@@ -138,3 +138,14 @@ docRouter.post('/:docId/chunk', async (req: Request, res: Response) => {
     res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
   }
 });
+
+// GET /api/kbs/:kbId/documents/:docId/chunk-progress
+docRouter.get('/:docId/chunk-progress', async (req: Request, res: Response) => {
+  const docId = req.params.docId as string;
+  try {
+    const result = await pythonClient.getChunkProgress(docId);
+    res.json(result);
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
+});

@@ -1,5 +1,38 @@
 # CIFT - 开发进度
 
+## 2026-04-26
+
+### Phase 3 完成
+
+- [x] **TASK 012: 分段异步化 + 分隔符对齐分段**
+  - **12.3 分块预览分页** — ChunkPreview 页面支持分页（默认 50 条，可选 20/50/100），使用 Ant Design List pagination
+  - **12.1 分段异步任务化** — 全栈改造
+    - PostgreSQL 新增 `chunk_tasks` 表（task_id, doc_id, status, progress, total_chunks, current_chunk, error_message）
+    - Python `POST /internal/documents/{doc_id}/chunk` 改为异步：立即返回 task_id，后台 asyncio.ensure_future 执行分段
+    - Python 新增 `GET /internal/documents/{doc_id}/chunk-progress` 查询分段进度
+    - Node 代理异步分段接口（返回 task_id）+ 新增进度查询代理
+    - 前端点击分段后 toast 提示「分段任务已提交」，文档列表新增「进度」列，2 秒自动轮询，完成/失败后自动刷新
+  - **12.2 分隔符对齐分段** — 改造 TextChunker._aligned_chunk 算法
+    - 预设分隔符优先级列表（\n\n > \n > 。> ？> ！> ；> . > ? > ! > 空格）
+    - 在 chunk_size 附近双向搜索分隔符，取最近者作为切分点
+    - 最大分段长度不超过 chunk_size × 2
+    - 自定义分隔符通过分段配置覆盖，无分隔符时退化为固定长度切分
+
+### 新增文件
+- （无新增文件，全部为现有文件改造）
+
+### 修改文件
+- `frontend/src/pages/ChunkPreview.tsx` — 分页支持
+- `frontend/src/pages/KbDetail.tsx` — 异步分段 UI + 进度轮询 + 进度列
+- `frontend/src/api.ts` — 新增 ChunkTaskInfo 类型 + getChunkProgress 接口
+- `services/python/app/services/chunker.py` — 分隔符对齐算法
+- `services/python/app/services/database.py` — 新增 ChunkTask ORM 模型
+- `services/python/app/services/__init__.py` — 导出 ChunkTask
+- `services/python/app/models/schemas.py` — 新增 ChunkTaskResponse schema
+- `services/python/app/routers/chunking.py` — 异步分段 + 进度查询接口
+- `services/node/src/services/pythonClient.ts` — 新增 getChunkProgress 方法
+- `services/node/src/routes/documents.ts` — 新增进度查询代理路由
+
 ## 2026-04-17
 
 ### Phase 2 完成

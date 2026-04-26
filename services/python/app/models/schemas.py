@@ -135,6 +135,16 @@ class ChunkRequest(BaseModel):
     separators: str | None = None
 
 
+class ChunkTaskResponse(BaseModel):
+    task_id: str
+    doc_id: str
+    status: str
+    progress: int = 0
+    total_chunks: int = 0
+    current_chunk: int = 0
+    error_message: str | None = None
+
+
 # --- Model Config ---
 
 class ModelConfigCreate(BaseModel):

@@ -84,6 +84,20 @@ class ModelConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ChunkTask(Base):
+    __tablename__ = "chunk_tasks"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    doc_id: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending/processing/completed/failed
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    total_chunks: Mapped[int] = mapped_column(Integer, default=0)
+    current_chunk: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class KnowledgeGraph(Base):
     __tablename__ = "knowledge_graphs"
 

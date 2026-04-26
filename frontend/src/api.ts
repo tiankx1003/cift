@@ -160,12 +160,25 @@ export const getDocumentChunks = (kbId: string, docId: string) =>
 
 // --- Chunking ---
 
+export interface ChunkTaskInfo {
+  task_id: string;
+  doc_id: string;
+  status: string;
+  progress: number;
+  total_chunks: number;
+  current_chunk: number;
+  error_message: string | null;
+}
+
 export const chunkDocument = (kbId: string, docId: string, body: { config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
-  request<{ doc_id: string; status: string; chunk_count: number }>(`/kbs/${kbId}/documents/${docId}/chunk`, {
+  request<{ task_id: string; doc_id: string; status: string }>(`/kbs/${kbId}/documents/${docId}/chunk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+
+export const getChunkProgress = (kbId: string, docId: string) =>
+  request<ChunkTaskInfo>(`/kbs/${kbId}/documents/${docId}/chunk-progress`);
 
 // --- Chunk Configs ---
 

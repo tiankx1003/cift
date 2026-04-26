@@ -77,11 +77,16 @@ export const pythonClient = {
     ),
 
   chunkDocument: (docId: string, body: { kb_id: string; config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
-    request<{ doc_id: string; status: string; chunk_count: number }>(`/internal/documents/${docId}/chunk`, {
+    request<{ task_id: string; doc_id: string; status: string }>(`/internal/documents/${docId}/chunk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+
+  getChunkProgress: (docId: string) =>
+    request<{ task_id: string; doc_id: string; status: string; progress: number; total_chunks: number; current_chunk: number; error_message: string | null }>(
+      `/internal/documents/${docId}/chunk-progress`
+    ),
 
   listChunkConfigs: (kbId: string) =>
     request<Array<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>>(

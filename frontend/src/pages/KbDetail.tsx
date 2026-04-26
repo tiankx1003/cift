@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   Button,
@@ -99,6 +99,10 @@ export default function KbDetail() {
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [batchChunkModalOpen, setBatchChunkModalOpen] = useState(false);
 
+  // Async chunking progress
+  const [chunkProgress, setChunkProgress] = useState<Record<string, api.ChunkTaskInfo>>({});
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const fetchData = useCallback(async () => {
     if (!kbId) return;
     try {
@@ -117,6 +121,43 @@ export default function KbDetail() {
   }, [kbId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Poll chunk progress for processing docs
+  useEffect(() => {
+    const pollProgress = async () => {
+      if (!kbId) return;
+      const processingDocs = docs.filter(d => d.status === 'processing');
+      if (processingDocs.length === 0) return;
+
+      const updates: Record<string, api.ChunkTaskInfo> = {};
+      for (const doc of processingDocs) {
+        try {
+          const info = await api.getChunkProgress(kbId, doc.doc_id);
+          updates[doc.doc_id] = info;
+        } catch { /* ignore */ }
+      }
+      if (Object.keys(updates).length > 0) {
+        setChunkProgress(prev => ({ ...prev, ...updates }));
+        // If all done, refresh doc list
+        const allDone = Object.values(updates).every(t => t.status === 'completed' || t.status === 'failed');
+        if (allDone) {
+          fetchData();
+        }
+      }
+    };
+
+    // Poll every 2s if there are processing docs
+    if (docs.some(d => d.status === 'processing')) {
+      pollingRef.current = setInterval(pollProgress, 2000);
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [kbId, docs, fetchData]);
 
   const handleBatchUpload = async (files: File[]) => {
     if (!kbId) return;
@@ -184,7 +225,6 @@ export default function KbDetail() {
   const handleBatchChunk = async (values: any) => {
     if (!kbId || selectedRowKeys.length === 0) return;
     setBatchChunkModalOpen(false);
-    setBatchChunking(true);
     const body: any = {};
     if (values.config_id) {
       body.config_id = values.config_id;
@@ -195,17 +235,15 @@ export default function KbDetail() {
     }
     let ok = 0, fail = 0;
     for (let i = 0; i < selectedRowKeys.length; i++) {
-      setBatchProgress({ current: i + 1, total: selectedRowKeys.length });
       try {
         await api.chunkDocument(kbId, selectedRowKeys[i] as string, body);
         ok++;
       } catch { fail++; }
     }
-    message.success(`${ok} 个文档分段成功${fail > 0 ? `，${fail} 个失败` : ''}`);
-    setBatchChunking(false);
-    setBatchProgress(null);
+    message.success(`${ok} 个文档分段任务已提交${fail > 0 ? `，${fail} 个失败` : ''}`);
     setSelectedRowKeys([]);
-    fetchData();
+    // Mark all as processing to trigger polling
+    setDocs(prev => prev.map(d => selectedRowKeys.includes(d.doc_id) ? { ...d, status: 'processing' } : d));
   };
 
   const handleSearch = async () => {
@@ -251,13 +289,10 @@ export default function KbDetail() {
         body.separators = values.separators || '';
       }
       const res = await api.chunkDocument(kbId, chunkingDocId, body);
-      if (res.status === 'completed') {
-        message.success(`分段完成，生成 ${res.chunk_count} 个分块`);
-      } else {
-        message.error(`分段失败`);
-      }
+      message.success('分段任务已提交');
       setChunkModalOpen(false);
-      fetchData();
+      // Mark doc as processing immediately and start polling
+      setDocs(prev => prev.map(d => d.doc_id === chunkingDocId ? { ...d, status: 'processing' } : d));
     } catch (e: any) {
       message.error(e.message);
     } finally {
@@ -516,6 +551,28 @@ export default function KbDetail() {
                 dataIndex: 'chunk_count',
                 width: 70,
                 align: 'center',
+              },
+              {
+                title: '进度',
+                width: 120,
+                align: 'center',
+                render: (_: unknown, record: api.DocumentInfo) => {
+                  const taskInfo = chunkProgress[record.doc_id];
+                  if (record.status === 'processing' && taskInfo) {
+                    return (
+                      <Progress
+                        percent={taskInfo.progress}
+                        size="small"
+                        status={taskInfo.status === 'failed' ? 'exception' : 'active'}
+                        format={(p) => `${p}%`}
+                      />
+                    );
+                  }
+                  if (record.status === 'completed') {
+                    return <Tag color="green">已完成</Tag>;
+                  }
+                  return null;
+                },
               },
               {
                 title: '分段策略',

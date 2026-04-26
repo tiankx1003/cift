@@ -6,12 +6,16 @@ import * as api from '../api';
 
 const { Title, Text } = Typography;
 
+const PAGE_SIZE_OPTIONS = [20, 50, 100];
+
 export default function ChunkPreview() {
   const { kbId, docId } = useParams<{ kbId: string; docId: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<api.ChunksResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const fetchData = useCallback(async () => {
     if (!kbId || !docId) return;
@@ -27,6 +31,11 @@ export default function ChunkPreview() {
   }, [kbId, docId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Reset page when data changes
+  useEffect(() => { setPage(1); }, [data]);
+
+  const pagedChunks = data ? data.chunks.slice((page - 1) * pageSize, page * pageSize) : [];
 
   // Auto-scroll to highlighted chunk
   useEffect(() => {
@@ -113,7 +122,7 @@ export default function ChunkPreview() {
             styles={{ body: { padding: 0, maxHeight: 'calc(100vh - 240px)', overflow: 'auto' } }}
           >
             <List
-              dataSource={data.chunks}
+              dataSource={pagedChunks}
               renderItem={(chunk) => (
                 <List.Item
                   onClick={() => setSelected(chunk.chunk_index)}
@@ -140,6 +149,16 @@ export default function ChunkPreview() {
                   </div>
                 </List.Item>
               )}
+              pagination={{
+                current: page,
+                pageSize,
+                total: data.chunks.length,
+                size: 'small',
+                showSizeChanger: true,
+                pageSizeOptions: PAGE_SIZE_OPTIONS.map(String),
+                onChange: (p, ps) => { setPage(p); setPageSize(ps); },
+                showTotal: (total) => `共 ${total} 个分块`,
+              }}
             />
           </Card>
         </div>
