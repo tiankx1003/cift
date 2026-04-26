@@ -85,6 +85,13 @@ export default function KbDetail() {
   const [results, setResults] = useState<api.SearchResult[]>([]);
   const [searchDone, setSearchDone] = useState(false);
 
+  // Search parameters
+  const [searchParamsExpanded, setSearchParamsExpanded] = useState(false);
+  const [searchTopK, setSearchTopK] = useState(10);
+  const [searchSimilarityThreshold, setSearchSimilarityThreshold] = useState(0.3);
+  const [searchVectorWeight, setSearchVectorWeight] = useState(0.7);
+  const [searchHybridThreshold, setSearchHybridThreshold] = useState(0.0);
+
   const [chunkModalOpen, setChunkModalOpen] = useState(false);
   const [chunkingDocId, setChunkingDocId] = useState<string>('');
   const [chunking, setChunking] = useState(false);
@@ -255,7 +262,12 @@ export default function KbDetail() {
     try {
       setSearching(true);
       setSearchDone(true);
-      const res = await api.search(kbId, query);
+      const res = await api.search(kbId, query, {
+        top_k: searchTopK,
+        similarity_threshold: searchSimilarityThreshold,
+        vector_weight: searchVectorWeight,
+        hybrid_threshold: searchHybridThreshold,
+      });
       setResults(res.results);
     } catch (e: any) {
       message.error(e.message);
@@ -637,7 +649,7 @@ export default function KbDetail() {
         size="small"
         style={{ marginBottom: 24, borderRadius: 8 }}
       >
-        <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
+        <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
           <Input
             placeholder="输入查询内容..."
             value={query}
@@ -655,6 +667,78 @@ export default function KbDetail() {
             搜索
           </Button>
         </Space.Compact>
+
+        {/* Collapsible search parameters */}
+        <div style={{ marginBottom: 16 }}>
+          <Button
+            type="link"
+            size="small"
+            onClick={() => setSearchParamsExpanded(!searchParamsExpanded)}
+            style={{ padding: 0, color: '#999' }}
+          >
+            {searchParamsExpanded ? '收起参数' : '搜索参数'}
+          </Button>
+          {searchParamsExpanded && (
+            <Card size="small" style={{ marginTop: 8, background: '#fafafa' }}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>返回数量 (top-k): {searchTopK}</Text>
+                    <input
+                      type="range"
+                      min={1}
+                      max={50}
+                      value={searchTopK}
+                      onChange={(e) => setSearchTopK(Number(e.target.value))}
+                      style={{ width: '100%', marginTop: 4 }}
+                    />
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>最低相似度: {searchSimilarityThreshold.toFixed(2)}</Text>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(searchSimilarityThreshold * 100)}
+                      onChange={(e) => setSearchSimilarityThreshold(Number(e.target.value) / 100)}
+                      style={{ width: '100%', marginTop: 4 }}
+                    />
+                  </div>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>向量权重: {searchVectorWeight.toFixed(2)}</Text>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(searchVectorWeight * 100)}
+                      onChange={(e) => setSearchVectorWeight(Number(e.target.value) / 100)}
+                      style={{ width: '100%', marginTop: 4 }}
+                    />
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div style={{ marginBottom: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>混合阈值: {searchHybridThreshold.toFixed(2)}</Text>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={Math.round(searchHybridThreshold * 100)}
+                      onChange={(e) => setSearchHybridThreshold(Number(e.target.value) / 100)}
+                      style={{ width: '100%', marginTop: 4 }}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+          )}
+        </div>
 
         {searchDone && results.length === 0 && !searching && (
           <Empty description="未找到相关结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />

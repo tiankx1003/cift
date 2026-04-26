@@ -44,7 +44,10 @@ class UploadResponse(BaseModel):
 class SearchRequest(BaseModel):
     kb_id: str
     query: str
-    top_k: int = 5
+    top_k: int = 10
+    similarity_threshold: float = 0.0   # Filter results below this similarity (0-1)
+    vector_weight: float = 0.7          # Vector weight for hybrid search (0-1)
+    hybrid_threshold: float = 0.0       # Threshold for hybrid score (0-1)
 
 
 class SearchResult(BaseModel):

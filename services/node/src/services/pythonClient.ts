@@ -62,12 +62,17 @@ export const pythonClient = {
     });
   },
 
-  search: (kbId: string, query: string, topK = 5) => {
+  search: (kbId: string, query: string, topK = 10, similarityThreshold = 0.0, vectorWeight = 0.7, hybridThreshold = 0.0) => {
     type SR = { results: Array<{ chunk_id: string; content: string; score: number; metadata: Record<string, unknown> }> };
     return request<SR>('/internal/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kb_id: kbId, query, top_k: topK }),
+      body: JSON.stringify({
+        kb_id: kbId, query, top_k: topK,
+        similarity_threshold: similarityThreshold,
+        vector_weight: vectorWeight,
+        hybrid_threshold: hybridThreshold,
+      }),
     });
   },
 
@@ -76,7 +81,7 @@ export const pythonClient = {
       `/internal/documents/${docId}/chunks?kb_id=${kbId}`
     ),
 
-  chunkDocument: (docId: string, body: { kb_id: string; config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
+  chunkDocument: (docId: string, body: { kb_id: string; config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string; strategy?: string; heading_level?: number }) =>
     request<{ task_id: string; doc_id: string; status: string }>(`/internal/documents/${docId}/chunk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -89,12 +94,12 @@ export const pythonClient = {
     ),
 
   listChunkConfigs: (kbId: string) =>
-    request<Array<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>>(
+    request<Array<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy: string; heading_level: number; is_default: boolean }>>(
       `/internal/kbs/${kbId}/chunk-configs`
     ),
 
-  createChunkConfig: (kbId: string, data: { name: string; chunk_size: number; chunk_overlap: number; separators: string }) =>
-    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+  createChunkConfig: (kbId: string, data: { name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy?: string; heading_level?: number }) =>
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy: string; heading_level: number; is_default: boolean }>(
       `/internal/kbs/${kbId}/chunk-configs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -102,8 +107,8 @@ export const pythonClient = {
       }
     ),
 
-  updateChunkConfig: (kbId: string, configId: string, data: { name?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
-    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+  updateChunkConfig: (kbId: string, configId: string, data: { name?: string; chunk_size?: number; chunk_overlap?: number; separators?: string; strategy?: string; heading_level?: number }) =>
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy: string; heading_level: number; is_default: boolean }>(
       `/internal/kbs/${kbId}/chunk-configs/${configId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -115,7 +120,7 @@ export const pythonClient = {
     request<{ status: string }>(`/internal/kbs/${kbId}/chunk-configs/${configId}`, { method: 'DELETE' }),
 
   setDefaultChunkConfig: (kbId: string, configId: string) =>
-    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; is_default: boolean }>(
+    request<{ id: string; name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy: string; heading_level: number; is_default: boolean }>(
       `/internal/kbs/${kbId}/chunk-configs/${configId}/default`, { method: 'PUT' }
     ),
 

@@ -33,13 +33,15 @@ async def search(req: SearchRequest):
             include=["documents", "metadatas", "distances"],
         )
 
-        # 3. Format results
+        # 3. Format results — apply similarity threshold
         search_results = []
         if results["ids"] and results["ids"][0]:
             for i, chunk_id in enumerate(results["ids"][0]):
                 score = results["distances"][0][i]
                 # Convert distance to similarity (1 - distance for cosine)
                 similarity = max(0, 1 - score)
+                if similarity < req.similarity_threshold:
+                    continue
                 search_results.append(
                     SearchResult(
                         chunk_id=chunk_id,

@@ -132,11 +132,11 @@ export interface SearchResponse {
   results: SearchResult[];
 }
 
-export const search = (kbId: string, query: string, topK = 5) =>
+export const search = (kbId: string, query: string, params?: { top_k?: number; similarity_threshold?: number; vector_weight?: number; hybrid_threshold?: number }) =>
   request<SearchResponse>(`/kbs/${kbId}/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, top_k: topK }),
+    body: JSON.stringify({ query, ...params }),
   });
 
 // --- Chunks ---
