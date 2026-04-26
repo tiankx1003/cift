@@ -19,6 +19,12 @@ modelConfigRouter.get('/active', async (_req: Request, res: Response) => {
   res.json(configs);
 });
 
+// GET /api/models/default-embedding
+modelConfigRouter.get('/default-embedding', async (_req: Request, res: Response) => {
+  const info = await pythonClient.getDefaultEmbedding();
+  res.json(info);
+});
+
 // POST /api/models
 modelConfigRouter.post('/', async (req: Request, res: Response) => {
   const config = await pythonClient.createModel(req.body);

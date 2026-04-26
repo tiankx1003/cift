@@ -116,7 +116,6 @@ async def test_model(data: ModelConfigCreate, db: AsyncSession = Depends(get_db)
     try:
         if data.model_type == "embedding":
             from ..services.embedding.factory import create_embedding_provider
-            # Temporarily create provider with the given config
             if data.provider == "ollama":
                 from ..services.embedding.ollama_provider import OllamaProvider
                 provider = OllamaProvider(model=data.model_name, base_url=data.base_url or "http://localhost:11434")
@@ -130,7 +129,6 @@ async def test_model(data: ModelConfigCreate, db: AsyncSession = Depends(get_db)
                 return {"success": False, "message": f"Embedding provider '{data.provider}' test not supported"}
             dim = provider.dimension
             return {"success": True, "message": f"连接成功，向量维度: {dim}"}
-
         elif data.model_type == "llm":
             import httpx
             base_url = (data.base_url or "http://localhost:11434").rstrip("/")
@@ -146,12 +144,27 @@ async def test_model(data: ModelConfigCreate, db: AsyncSession = Depends(get_db)
                 resp = await client.post(f"{base_url}/v1/chat/completions", headers=headers, json=payload, timeout=30)
                 resp.raise_for_status()
             return {"success": True, "message": "LLM 连接成功"}
-
         elif data.model_type == "rerank":
             return {"success": True, "message": "Rerank 配置已保存（暂无在线测试）"}
-
         else:
             return {"success": False, "message": f"Unknown model type: {data.model_type}"}
-
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+@router.get("/default-embedding")
+async def get_default_embedding():
+    settings = get_settings()
+    provider = settings.embedding_provider
+    base_url = ""
+    if provider == "ollama":
+        base_url = settings.ollama_base_url
+    elif provider == "openai":
+        base_url = settings.openai_base_url
+    elif provider == "mlx":
+        base_url = "local (MLX)"
+    return {
+        "provider": provider,
+        "model_name": settings.embedding_model,
+        "base_url": base_url,
+    }

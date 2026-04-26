@@ -217,6 +217,9 @@ export interface ModelConfigInfo {
 export const listModels = (type?: string) =>
   request<ModelConfigInfo[]>(`/models${type ? `?type=${type}` : ''}`);
 
+export const getDefaultEmbedding = () =>
+  request<{ provider: string; model_name: string; base_url: string }>('/models/default-embedding');
+
 export const getActiveModels = () =>
   request<ModelConfigInfo[]>('/models/active');
 

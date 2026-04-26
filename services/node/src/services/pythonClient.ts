@@ -116,6 +116,9 @@ export const pythonClient = {
 
   // --- Model Configs ---
 
+  getDefaultEmbedding: () =>
+    request<{ provider: string; model_name: string; base_url: string }>('/internal/models/default-embedding'),
+
   listModels: (type?: string) =>
     request<Array<{ id: string; model_type: string; provider: string; model_name: string; base_url: string; api_key: string; is_active: boolean; extra_params: string | null }>>(
       `/internal/models${type ? `?type=${type}` : ''}`

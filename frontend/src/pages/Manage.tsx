@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Button, Table, Tag, Space, Modal, Form, Input, Select, Popconfirm, Tabs, message,
+  Button, Table, Tag, Space, Modal, Form, Input, Select, Popconfirm, Card, Descriptions, message,
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, ThunderboltOutlined, CheckCircleOutlined, CloseCircleOutlined, SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
@@ -14,7 +14,13 @@ const PROVIDERS = [
   { value: 'llama_cpp', label: 'LlamaCpp' },
 ];
 
-function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
+const MODEL_TYPE_LABELS: Record<string, string> = {
+  llm: 'LLM 模型',
+  embedding: 'Embedding 模型',
+  rerank: 'Rerank 模型',
+};
+
+function ModelSection({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
   const [configs, setConfigs] = useState<api.ModelConfigInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,10 +28,13 @@ function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // Default embedding model (only for embedding type)
+  const [defaultModel, setDefaultModel] = useState<{ provider: string; model_name: string; base_url: string } | null>(null);
+
   const fetchConfigs = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await listModels(type);
+      const data = await api.listModels(type);
       setConfigs(data);
     } catch (e: any) {
       message.error(e.message);
@@ -34,7 +43,12 @@ function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
     }
   }, [type]);
 
-  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
+  useEffect(() => {
+    fetchConfigs();
+    if (type === 'embedding') {
+      api.getDefaultEmbedding().then(setDefaultModel).catch(() => {});
+    }
+  }, [fetchConfigs, type]);
 
   const handleSave = async (values: any) => {
     try {
@@ -93,15 +107,39 @@ function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
   };
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, textAlign: 'right' }}>
+    <Card
+      title={MODEL_TYPE_LABELS[type]}
+      size="small"
+      style={{ marginBottom: 24, borderRadius: 8 }}
+      extra={
         <Button
+          size="small"
           icon={<PlusOutlined />}
           onClick={() => { setEditing(null); setModalOpen(true); }}
         >
-          新增 {type === 'llm' ? 'LLM' : type === 'embedding' ? 'Embedding' : 'Rerank'} 模型
+          新增
         </Button>
-      </div>
+      }
+    >
+      {/* Default embedding model info */}
+      {type === 'embedding' && defaultModel && (
+        <Descriptions
+          size="small"
+          bordered
+          column={3}
+          style={{ marginBottom: 16 }}
+          title={
+            <span>
+              <SafetyCertificateOutlined style={{ marginRight: 6, color: '#1677ff' }} />
+              系统默认
+            </span>
+          }
+        >
+          <Descriptions.Item label="Provider">{defaultModel.provider}</Descriptions.Item>
+          <Descriptions.Item label="模型名称">{defaultModel.model_name}</Descriptions.Item>
+          <Descriptions.Item label="Base URL">{defaultModel.base_url || '-'}</Descriptions.Item>
+        </Descriptions>
+      )}
 
       <Table
         dataSource={configs}
@@ -169,7 +207,7 @@ function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
       )}
 
       <Modal
-        title={editing ? '编辑模型' : `新增 ${type === 'llm' ? 'LLM' : type === 'embedding' ? 'Embedding' : 'Rerank'} 模型`}
+        title={editing ? '编辑模型' : `新增 ${MODEL_TYPE_LABELS[type]}`}
         open={modalOpen}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
         footer={null}
@@ -204,26 +242,16 @@ function ModelTab({ type }: { type: 'llm' | 'embedding' | 'rerank' }) {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </Card>
   );
-}
-
-// Need to use api.listModels directly due to scope
-function listModels(type: string) {
-  return api.listModels(type);
 }
 
 export default function Manage() {
   return (
     <div>
-      <Tabs
-        defaultActiveKey="llm"
-        items={[
-          { key: 'llm', label: 'LLM 模型', children: <ModelTab type="llm" /> },
-          { key: 'embedding', label: 'Embedding 模型', children: <ModelTab type="embedding" /> },
-          { key: 'rerank', label: 'Rerank 模型', children: <ModelTab type="rerank" /> },
-        ]}
-      />
+      <ModelSection type="llm" />
+      <ModelSection type="embedding" />
+      <ModelSection type="rerank" />
     </div>
   );
 }
