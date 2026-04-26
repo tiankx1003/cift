@@ -94,17 +94,22 @@ docRouter.get('/:docId/chunks', async (req: Request, res: Response) => {
   const kbId = req.params.kbId as string;
   const docId = req.params.docId as string;
 
-  const [chunksRes, docRow] = await Promise.all([
-    pythonClient.getDocumentChunks(docId, kbId),
-    pool.query('SELECT filename FROM documents WHERE id = $1', [docId]),
-  ]);
+  try {
+    const [chunksRes, docRow] = await Promise.all([
+      pythonClient.getDocumentChunks(docId, kbId),
+      pool.query('SELECT filename FROM documents WHERE id = $1', [docId]),
+    ]);
 
-  const filename = docRow.rows.length > 0 ? docRow.rows[0].filename : '';
-  res.json({
-    filename,
-    extracted_text: (chunksRes as any).extracted_text || '',
-    chunks: (chunksRes as any).chunks || [],
-  });
+    const filename = docRow.rows.length > 0 ? docRow.rows[0].filename : '';
+    res.json({
+      filename,
+      extracted_text: (chunksRes as any).extracted_text || '',
+      chunks: (chunksRes as any).chunks || [],
+    });
+  } catch (e: any) {
+    const filename = (await pool.query('SELECT filename FROM documents WHERE id = $1', [docId])).rows[0]?.filename || '';
+    res.json({ filename, extracted_text: '', chunks: [] });
+  }
 });
 
 // POST /api/kbs/:kbId/documents/:docId/chunk
