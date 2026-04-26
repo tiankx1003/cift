@@ -33,8 +33,12 @@ docRouter.use(async (req: Request, res: Response, next: NextFunction) => {
 
 // GET /api/kbs/:kbId/documents
 docRouter.get('/', async (req: Request, res: Response) => {
-  const docs = await pythonClient.listDocuments(req.params.kbId as string);
-  res.json(docs);
+  try {
+    const docs = await pythonClient.listDocuments(req.params.kbId as string);
+    res.json(docs);
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
 });
 
 // POST /api/kbs/:kbId/documents/upload
@@ -54,39 +58,50 @@ docRouter.post('/upload', upload.single('file'), async (req: Request, res: Respo
   const kbId = req.params.kbId as string;
   // Fix: multer decodes multipart filenames as Latin-1, re-encode from UTF-8 bytes
   const filename = Buffer.from(file.originalname, 'latin1').toString('utf8');
-  const result = await pythonClient.uploadDocument(kbId, file.buffer, filename, MIME_MAP[ext]);
-  res.status(201).json(result);
+  try {
+    const result = await pythonClient.uploadDocument(kbId, file.buffer, filename, MIME_MAP[ext]);
+    res.status(201).json(result);
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
 });
 
 // DELETE /api/kbs/:kbId/documents/:docId
 docRouter.delete('/:docId', async (req: Request, res: Response) => {
   const kbId = req.params.kbId as string;
   const docId = req.params.docId as string;
-  await pythonClient.deleteDocVectors(kbId, docId);
-  res.json({ status: 'ok' });
+  try {
+    await pythonClient.deleteDocVectors(kbId, docId);
+    res.json({ status: 'ok' });
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
 });
 
 // POST /api/kbs/:kbId/documents/:docId/retry
 docRouter.post('/:docId/retry', async (req: Request, res: Response) => {
   const kbId = req.params.kbId as string;
   const docId = req.params.docId as string;
+  try {
+    const docs = await pythonClient.listDocuments(kbId);
+    const doc = docs.find((d) => d.doc_id === docId);
+    if (!doc) {
+      res.status(404).json({ code: 404, message: 'Document not found' });
+      return;
+    }
 
-  const docs = await pythonClient.listDocuments(kbId);
-  const doc = docs.find((d) => d.doc_id === docId);
-  if (!doc) {
-    res.status(404).json({ code: 404, message: 'Document not found' });
-    return;
+    const storageKey = `${kbId}/${doc.doc_id}/${doc.filename}`;
+    const result = await pythonClient.parseDocument(doc.doc_id, storageKey, doc.file_type, kbId);
+
+    res.json({
+      doc_id: doc.doc_id,
+      status: result.status,
+      chunk_count: result.chunk_count,
+      error_message: result.error_message,
+    });
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
   }
-
-  const storageKey = `${kbId}/${doc.doc_id}/${doc.filename}`;
-  const result = await pythonClient.parseDocument(doc.doc_id, storageKey, doc.file_type, kbId);
-
-  res.json({
-    doc_id: doc.doc_id,
-    status: result.status,
-    chunk_count: result.chunk_count,
-    error_message: result.error_message,
-  });
 });
 
 // GET /api/kbs/:kbId/documents/:docId/chunks
