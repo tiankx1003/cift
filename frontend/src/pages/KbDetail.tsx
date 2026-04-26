@@ -754,12 +754,19 @@ export default function KbDetail() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    marginBottom: 8,
+                    marginBottom: 4,
                   }}
                 >
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    文档: {item.metadata.doc_id} | 分块 #{item.metadata.chunk_index}
-                  </Text>
+                  <Space size={8}>
+                    {item.metadata.filename ? (
+                      <Link to={`/kb/${kbId}/documents/${item.metadata.doc_id}/preview`}>
+                        <Text strong style={{ fontSize: 13 }}>{item.metadata.filename}</Text>
+                      </Link>
+                    ) : (
+                      <Text type="secondary" style={{ fontSize: 12 }}>文档: {item.metadata.doc_id}</Text>
+                    )}
+                    <Tag style={{ fontSize: 11 }}>#{item.metadata.chunk_index}</Tag>
+                  </Space>
                   <Tag color={item.score > 0.6 ? 'green' : item.score > 0.3 ? 'blue' : 'default'}>
                     {(item.score * 100).toFixed(1)}%
                   </Tag>
@@ -771,7 +778,7 @@ export default function KbDetail() {
                   size="small"
                   style={{ marginBottom: 8 }}
                 />
-                <Paragraph style={{ margin: 0, color: '#333' }}>{highlightText(item.content, query)}</Paragraph>
+                <Paragraph style={{ margin: 0, color: '#333', lineHeight: 1.8 }}>{highlightText(item.content, query)}</Paragraph>
               </div>
             </List.Item>
           )}
