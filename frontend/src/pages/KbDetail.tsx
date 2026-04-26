@@ -288,7 +288,7 @@ export default function KbDetail() {
         body.chunk_overlap = values.chunk_overlap || 200;
         body.separators = values.separators || '';
       }
-      const res = await api.chunkDocument(kbId, chunkingDocId, body);
+      await api.chunkDocument(kbId, chunkingDocId, body);
       message.success('分段任务已提交');
       setChunkModalOpen(false);
       // Mark doc as processing immediately and start polling
