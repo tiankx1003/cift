@@ -22,6 +22,17 @@ import {
   Modal,
   Form,
   Select,
+  Alert,
+} from 'antd';
+  Spin,
+  Empty,
+  Row,
+  Col,
+  Progress,
+  Statistic,
+  Modal,
+  Form,
+  Select,
 } from 'antd';
 import {
   UploadOutlined,
@@ -97,6 +108,12 @@ export default function KbDetail() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<api.ChunkConfigInfo | null>(null);
 
+  // Batch operations
+  const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
+  const [batchChunking, setBatchChunking] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [batchChunkModalOpen, setBatchChunkModalOpen] = useState(false);
+
   const fetchData = useCallback(async () => {
     if (!kbId) return;
     try {
@@ -159,6 +176,51 @@ export default function KbDetail() {
     } catch (e: any) {
       message.error(e.message);
     }
+  };
+
+  const handleBatchDelete = async () => {
+    if (!kbId || selectedRowKeys.length === 0) return;
+    setBatchChunking(true);
+    let ok = 0, fail = 0;
+    for (let i = 0; i < selectedRowKeys.length; i++) {
+      setBatchProgress({ current: i + 1, total: selectedRowKeys.length });
+      try {
+        await api.deleteDocument(kbId, selectedRowKeys[i] as string);
+        ok++;
+      } catch { fail++; }
+    }
+    message.success(`已删除 ${ok} 个文档${fail > 0 ? `，${fail} 个失败` : ''}`);
+    setBatchChunking(false);
+    setBatchProgress(null);
+    setSelectedRowKeys([]);
+    fetchData();
+  };
+
+  const handleBatchChunk = async (values: any) => {
+    if (!kbId || selectedRowKeys.length === 0) return;
+    setBatchChunkModalOpen(false);
+    setBatchChunking(true);
+    const body: any = {};
+    if (values.config_id) {
+      body.config_id = values.config_id;
+    } else {
+      body.chunk_size = values.chunk_size || 800;
+      body.chunk_overlap = values.chunk_overlap || 200;
+      body.separators = values.separators || '';
+    }
+    let ok = 0, fail = 0;
+    for (let i = 0; i < selectedRowKeys.length; i++) {
+      setBatchProgress({ current: i + 1, total: selectedRowKeys.length });
+      try {
+        await api.chunkDocument(kbId, selectedRowKeys[i] as string, body);
+        ok++;
+      } catch { fail++; }
+    }
+    message.success(`${ok} 个文档分段成功${fail > 0 ? `，${fail} 个失败` : ''}`);
+    setBatchChunking(false);
+    setBatchProgress(null);
+    setSelectedRowKeys([]);
+    fetchData();
   };
 
   const handleSearch = async () => {
@@ -394,9 +456,39 @@ export default function KbDetail() {
             文档列表
           </span>
         }
+        extra={
+          selectedRowKeys.length > 0 && !batchChunking ? (
+            <Space>
+              <Button
+                size="small"
+                type="primary"
+                icon={<ScissorOutlined />}
+                onClick={() => { fetchChunkConfigs(); setBatchChunkModalOpen(true); }}
+              >
+                批量分段 ({selectedRowKeys.length})
+              </Button>
+              <Popconfirm
+                title={`确认删除 ${selectedRowKeys.length} 个文档？`}
+                onConfirm={handleBatchDelete}
+              >
+                <Button size="small" danger icon={<DeleteOutlined />}>
+                  批量删除 ({selectedRowKeys.length})
+                </Button>
+              </Popconfirm>
+            </Space>
+          ) : null
+        }
         size="small"
         style={{ marginBottom: 24, borderRadius: 8 }}
       >
+        {batchChunking && batchProgress && (
+          <Alert
+            style={{ marginBottom: 12 }}
+            type="info"
+            showIcon
+            message={`正在处理 ${batchProgress.current}/${batchProgress.total}...`}
+          />
+        )}
         {docs.length === 0 ? (
           <Empty description="暂无文档，上传文件开始使用" image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
@@ -405,6 +497,10 @@ export default function KbDetail() {
             rowKey="doc_id"
             size="small"
             pagination={false}
+            rowSelection={{
+              selectedRowKeys,
+              onChange: (keys) => setSelectedRowKeys(keys),
+            }}
             columns={[
               {
                 title: '文件名',
@@ -751,6 +847,46 @@ export default function KbDetail() {
             </div>
           )
         ) : null}
+      </Modal>
+
+      {/* Batch Chunk Modal */}
+      <Modal
+        title={`批量分段 (${selectedRowKeys.length} 个文档)`}
+        open={batchChunkModalOpen}
+        onCancel={() => setBatchChunkModalOpen(false)}
+        footer={null}
+        width={500}
+        destroyOnClose
+      >
+        <Form layout="vertical" onFinish={handleBatchChunk} autoComplete="off">
+          <Form.Item name="config_id" label="使用已保存配置">
+            <Select
+              allowClear
+              placeholder="选择已保存的配置，或留空自定义"
+              options={chunkConfigs.map(c => ({
+                value: c.id,
+                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap})`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item label="自定义参数（未选择配置时生效）">
+            <Input.Group compact>
+              <Form.Item name="chunk_size" noStyle>
+                <InputNumber placeholder="大小 800" style={{ width: '33%' }} min={100} />
+              </Form.Item>
+              <Form.Item name="chunk_overlap" noStyle>
+                <InputNumber placeholder="重叠 200" style={{ width: '33%' }} min={0} />
+              </Form.Item>
+              <Form.Item name="separators" noStyle>
+                <Input placeholder="分隔符" style={{ width: '34%' }} />
+              </Form.Item>
+            </Input.Group>
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Button onClick={() => setBatchChunkModalOpen(false)} style={{ marginRight: 8 }}>取消</Button>
+            <Button type="primary" htmlType="submit">执行分段</Button>
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
