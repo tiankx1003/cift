@@ -1,5 +1,76 @@
 # CIFT - 开发进度
 
+## 2026-04-27
+
+### Phase 4 完成
+
+- [x] **TASK 013: 分段能力强化**
+  - **13.1 按标题/章节分段** — 结构化分段策略
+    - Python 新增 `StructuralChunker`，支持 Markdown 标题层级（H1-H6）和中文章节格式（第X章、一、、1.1 等）识别
+    - 按 heading_level 切分，章节过长时二次分隔符对齐切分
+    - 支持 heading_level=0 自动检测最合适的标题层级
+    - 分段配置新增 `strategy`（fixed/structural）和 `heading_level`（0=auto, 1-6）字段
+    - 前端分段配置、执行分段、批量分段 Modal 均新增策略和层级选择器
+  - **13.2 LLM 智能分段** — ⏸️ 跳过（需 LLM 基础设施，MVP 暂缓）
+  - **13.3 分段质量评估** — ⏸️ 跳过（优先级低，待策略稳定后评估）
+
+- [x] **TASK 014: 搜索召回优化**
+  - **14.1 搜索参数可调** — 全栈改造
+    - Python `SearchRequest` 新增 `similarity_threshold`、`vector_weight`、`hybrid_threshold`
+    - 前端新增可折叠搜索参数面板（滑块调节 top-k/相似度阈值/向量权重/混合阈值）
+    - Node 透传所有搜索参数
+  - **14.2 召回结果展示优化** — 前端改造
+    - Python 搜索接口批量查询文档名并注入 metadata
+    - 前端搜索结果展示来源文档名（可点击跳转预览）、分块编号 Tag
+
+- [x] **TASK 015: 开放接口能力**
+  - **15.2 统一 API 响应格式 + 错误码** — Node 层
+    - 新增 `apiResponse.ts` 工具函数（success/created/list/error）
+    - 定义错误码范围：40001-40099 参数、40101-40199 认证、40401-40499 资源、40901-40999 冲突、50001-50099 内部
+  - **15.4 API Key 管理** — 全栈
+    - PostgreSQL 新增 `api_keys` 表（id, user_id, key, name, is_active, created_at, last_used_at）
+    - Node 新增 API Key CRUD 路由（`POST/GET/DELETE /api/api-keys`）
+    - 认证中间件支持 `Authorization: Bearer ck-...` 和 `X-API-Key: ck-...` 两种方式
+    - 前端管理页新增「API Keys」区域（创建、列表脱敏展示、删除）
+  - **15.1 补齐缺失接口** — 确认所有必需接口已在前期 Task 中实现
+  - **15.3 API 文档** — Node 层
+    - 集成 `swagger-ui-express` + `swagger-jsdoc`
+    - 路由添加 JSDoc 注释，访问 `/api/docs` 查看 Swagger UI
+  - **15.5 Dify 兼容检索接口** — 全栈
+    - Python 新增 `POST /internal/retrieval` 端点
+    - Node 新增 `POST /api/retrieval` 路由，仅 API Key 认证
+    - 兼容 Dify 外部知识库 API 规范（knowledge_id/query/retrieval_setting/records）
+
+### 新增文件
+- `services/python/app/routers/retrieval.py` — Dify 兼容检索端点
+- `services/node/src/utils/apiResponse.ts` — 统一响应格式工具
+- `services/node/src/middleware/apiKeyAuth.ts` — API Key 认证中间件
+- `services/node/src/routes/apiKeys.ts` — API Key CRUD 路由
+- `services/node/src/routes/retrieval.ts` — Dify 兼容检索路由
+- `services/node/src/swagger.ts` — Swagger/OpenAPI 配置
+
+### 修改文件
+- `services/python/app/services/chunker.py` — 新增 StructuralChunker
+- `services/python/app/services/database.py` — ChunkConfig 新增 strategy/heading_level
+- `services/python/app/models/schemas.py` — 新增搜索参数、Dify 检索 schema、分段策略字段
+- `services/python/app/routers/search.py` — 相似度阈值过滤 + 文档名注入
+- `services/python/app/routers/chunking.py` — 透传 strategy/heading_level
+- `services/python/app/routers/chunk_configs.py` — 处理新字段
+- `services/python/app/routers/__init__.py` — 注册 retrieval_router
+- `services/python/app/main.py` — 注册 retrieval_router
+- `services/node/src/db.ts` — 新增 api_keys 表迁移
+- `services/node/src/index.ts` — 注册 api-keys/retrieval/swagger 路由
+- `services/node/src/middleware/errorHandler.ts` — 使用规范错误码
+- `services/node/src/routes/search.ts` — 透传搜索参数
+- `services/node/src/services/pythonClient.ts` — 新增 retrieval 方法 + 搜索参数
+- `frontend/src/api.ts` — 新增 API Key 接口、搜索参数、分段策略类型
+- `frontend/src/pages/KbDetail.tsx` — 搜索参数面板 + 分段策略选择器 + 结果展示优化
+- `frontend/src/pages/Manage.tsx` — API Keys 管理区域
+
+### Docker 端到端验证通过
+- `docker compose up --build` 全部服务正常启动
+- 注册 → 登录 → 创建 KB → 创建 API Key → API Key 检索 → 全流程验证通过
+
 ## 2026-04-26
 
 ### Phase 3 完成
@@ -139,22 +210,34 @@
 依赖关系：A → B（不同 embedding 模型对 token 长度限制不同）
 技术选型待定：知识图谱（D）待调研 Neo4j / NetworkX + D3.js / ECharts 等方案
 
-### 下一步（2026-04-15 规划）
+### Phase 4 路线图（2026-04-27 规划）— ✅ 已完成
 
-**🔥 高优先级（核心体验提升）**
-- [x] 支持更多文件格式（PDF、Word）— 2026-04-16 完成
-- [x] 搜索结果关键词高亮 — 2026-04-17 完成
-- [ ] 文档解析状态展示（解析中/成功/失败）
+三大方向：分段能力强化、搜索召回优化、开放接口能力
 
-**⭐ 中优先级（功能完善）**
-- [x] 分块可视化（查看文档分块结果）— 2026-04-17 完成
-- [ ] 知识库统计（文档数、chunk数、存储占用）
-- [ ] 文件格式扩展（CSV、JSON 等结构化数据）
+**方向一：分段能力强化**
+- [x] 按标题/章节分段（识别文档结构，按层级切分）— TASK 13.1
+- ⏸️ LLM 智能分段 — 跳过
+- ⏸️ 分段质量评估 — 跳过
 
-**🔮 低优先级（生产化）**
-- [ ] HTTPS + 密钥管理
-- [ ] 多租户/权限管理（已有 user_id 隔离基础）
-- [ ] 批量上传
+**方向二：搜索召回优化**
+- [x] 搜索参数可调（top-k、相似度阈值）— TASK 14.1
+- [x] 召回结果展示优化（来源文档、分块编号）— TASK 14.2
+- [ ] Rerank 重排序串联
+- [ ] 混合检索（向量 + 关键词 BM25）
+
+**方向三：开放接口能力**
+- [x] 统一 API 响应格式 + 错误码规范 — TASK 15.2
+- [x] API Key 管理（独立于 JWT 的接口调用凭证）— TASK 15.4
+- [x] 补齐缺失接口 — TASK 15.1
+- [x] API 文档（Swagger/OpenAPI）— TASK 15.3
+- [x] Dify 兼容检索接口 — TASK 15.5
+
+**⏸️ 暂缓**
+- 知识库统计面板
+- 文件格式扩展（CSV、JSON）
+- 文档解析状态展示
+- HTTPS + 密钥管理
+- 多租户/权限管理
 
 ## Node API Gateway (`services/node/`)
 
