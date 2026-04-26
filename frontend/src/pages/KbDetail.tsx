@@ -78,6 +78,7 @@ export default function KbDetail() {
   const [docs, setDocs] = useState<api.DocumentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
@@ -115,28 +116,38 @@ export default function KbDetail() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleUpload = async (file: File) => {
-    if (!kbId) return false;
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['txt', 'md', 'pdf', 'docx'].includes(ext || '')) {
-      message.error('仅支持 .txt、.md、.pdf、.docx 文件');
-      return false;
+  const handleBatchUpload = async (files: File[]) => {
+    if (!kbId) return;
+    const validFiles = files.filter(file => {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      return ['txt', 'md', 'pdf', 'docx'].includes(ext || '');
+    });
+    const invalidCount = files.length - validFiles.length;
+    if (invalidCount > 0) {
+      message.warning(`${invalidCount} 个文件格式不支持，已跳过`);
     }
-    try {
-      setUploading(true);
-      const res = await api.uploadFile(kbId, file);
-      if (res.status === 'completed') {
-        message.success(`上传成功，生成 ${res.chunk_count} 个分块`);
-      } else {
-        message.error(`处理失败: ${res.error_message}`);
+    if (validFiles.length === 0) return;
+    setUploading(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (let i = 0; i < validFiles.length; i++) {
+      setUploadProgress({ current: i + 1, total: validFiles.length });
+      try {
+        const res = await api.uploadFile(kbId, validFiles[i]);
+        if (res.status === 'completed') successCount++;
+        else failCount++;
+      } catch {
+        failCount++;
       }
-      fetchData();
-    } catch (e: any) {
-      message.error(e.message);
-    } finally {
-      setUploading(false);
     }
-    return false;
+    if (successCount > 0) {
+      message.success(`${successCount} 个文件上传成功${failCount > 0 ? `，${failCount} 个失败` : ''}`);
+    } else {
+      message.error('所有文件上传失败');
+    }
+    setUploading(false);
+    setUploadProgress(null);
+    fetchData();
   };
 
   const handleDeleteDoc = async (docId: string) => {
@@ -356,11 +367,19 @@ export default function KbDetail() {
         <Upload
           accept=".txt,.md,.pdf,.docx"
           showUploadList={false}
-          beforeUpload={handleUpload}
+          multiple
+          beforeUpload={(file, fileList) => {
+            if (fileList.indexOf(file) === 0) {
+              handleBatchUpload(fileList);
+            }
+            return false;
+          }}
           disabled={uploading}
         >
           <Button icon={<UploadOutlined />} loading={uploading} type="primary">
-            {uploading ? '处理中...' : '选择文件 (.txt / .md / .pdf / .docx)'}
+            {uploading
+              ? `处理中 (${uploadProgress?.current}/${uploadProgress?.total})...`
+              : '选择文件 (.txt / .md / .pdf / .docx)'}
           </Button>
         </Upload>
         <Text type="secondary" style={{ marginLeft: 12 }}>
@@ -431,6 +450,15 @@ export default function KbDetail() {
                 dataIndex: 'chunk_count',
                 width: 70,
                 align: 'center',
+              },
+              {
+                title: '分段策略',
+                width: 160,
+                align: 'center',
+                render: (_: unknown, record: api.DocumentInfo) =>
+                  record.chunk_size != null
+                    ? <Text style={{ fontSize: 12 }}>{record.chunk_size}/{record.chunk_overlap}{record.separators ? `/${record.separators}` : ''}</Text>
+                    : '—',
               },
               {
                 title: '操作',
