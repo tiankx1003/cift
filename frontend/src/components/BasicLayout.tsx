@@ -121,6 +121,8 @@ export default function BasicLayout() {
           colorTextMenu: 'rgba(255,255,255,0.65)',
           colorTextMenuActive: '#fff',
           colorTextMenuSelected: '#fff',
+          colorTextMenuItemHover: 'rgba(255,255,255,0.85)',
+          colorBgMenuItemHover: 'rgba(255,255,255,0.08)',
         },
       }}
       menuItemRender={(item, dom) => (
