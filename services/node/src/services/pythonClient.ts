@@ -38,7 +38,7 @@ export const pythonClient = {
     request<{ status: string }>(`/internal/kbs/${kbId}`, { method: 'DELETE' }),
 
   listDocuments: (kbId: string) =>
-    request<Array<{ doc_id: string; filename: string; file_type: string; file_size: number; status: string; chunk_count: number }>>(
+    request<Array<{ doc_id: string; filename: string; file_type: string; file_size: number; status: string; chunk_count: number; chunk_size: number | null; chunk_overlap: number | null; separators: string | null }>>(
       `/internal/kbs/${kbId}/documents`
     ),
 

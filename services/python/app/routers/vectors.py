@@ -35,10 +35,11 @@ async def delete_doc_vectors(
         # Delete from PostgreSQL
         doc = await db.get(Document, doc_id)
         if doc:
+            old_chunks = doc.chunk_count or 0
             await db.delete(doc)
             kb = await db.get(KnowledgeBase, kb_id)
             if kb and kb.doc_count > 0:
-                kb.doc_count -= 1
+                kb.doc_count = max(0, kb.doc_count - old_chunks)
             await db.commit()
 
         logger.info(f"Deleted vectors for doc={doc_id} in kb={kb_id}")

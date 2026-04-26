@@ -85,6 +85,9 @@ export interface DocumentInfo {
   file_size: number;
   status: string;
   chunk_count: number;
+  chunk_size: number | null;
+  chunk_overlap: number | null;
+  separators: string | null;
 }
 
 export const listDocuments = (kbId: string) =>

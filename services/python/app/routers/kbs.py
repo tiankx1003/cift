@@ -76,6 +76,7 @@ async def list_documents(kb_id: str, db: AsyncSession = Depends(get_db)):
         DocumentInfo(
             doc_id=d.id, filename=d.filename, file_type=d.file_type,
             file_size=d.file_size, status=d.status, chunk_count=d.chunk_count,
+            chunk_size=d.chunk_size, chunk_overlap=d.chunk_overlap, separators=d.separators,
         )
         for d in docs
     ]

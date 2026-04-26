@@ -85,6 +85,9 @@ class DocumentInfo(BaseModel):
     file_size: int
     status: str
     chunk_count: int
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    separators: str | None = None
 
 
 # --- Chunks ---

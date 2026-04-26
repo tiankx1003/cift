@@ -98,11 +98,15 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
         )
 
         # Update document
+        old_chunk_count = doc.chunk_count or 0
         doc.status = "completed"
         doc.chunk_count = len(chunks)
+        doc.chunk_size = chunk_size
+        doc.chunk_overlap = chunk_overlap
+        doc.separators = separators
         kb = await db.get(KnowledgeBase, req.kb_id)
-        if kb and doc.chunk_count == 0:
-            pass  # Don't increment if re-chunking
+        if kb:
+            kb.doc_count = (kb.doc_count or 0) - old_chunk_count + len(chunks)
         await db.commit()
 
         logger.info(f"Chunked doc={doc_id}, chunks={len(chunks)}")
