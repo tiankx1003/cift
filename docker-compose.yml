@@ -18,7 +18,7 @@ services:
   chromadb:
     image: chromadb/chroma:latest
     volumes:
-      - chromadata:/chroma/chroma
+      - chromadata:/data
     ports:
       - "8001:8000"
     healthcheck:
