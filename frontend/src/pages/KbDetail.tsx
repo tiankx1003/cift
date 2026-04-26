@@ -466,16 +466,24 @@ export default function KbDetail() {
                 align: 'center',
                 render: (_: unknown, record: api.DocumentInfo) => (
                   <Space size="small">
-                    {record.status === 'uploaded' && (
-                      <Button
-                        size="small"
-                        type="primary"
-                        icon={<ScissorOutlined />}
-                        onClick={() => openChunkModal(record.doc_id)}
-                      >
-                        分段
-                      </Button>
-                    )}
+                    <Button
+                      size="small"
+                      type={record.status === 'uploaded' ? 'primary' : 'default'}
+                      icon={<ScissorOutlined />}
+                      onClick={() => {
+                        if (record.status === 'completed' && record.chunk_count > 0) {
+                          Modal.confirm({
+                            title: '重新分段',
+                            content: '重新分段将清除原有分块数据，确定继续？',
+                            onOk: () => openChunkModal(record.doc_id),
+                          });
+                        } else {
+                          openChunkModal(record.doc_id);
+                        }
+                      }}
+                    >
+                      分段
+                    </Button>
                     <Popconfirm title="确认删除？" onConfirm={() => handleDeleteDoc(record.doc_id)}>
                       <Button size="small" danger icon={<DeleteOutlined />} />
                     </Popconfirm>
