@@ -52,7 +52,9 @@ docRouter.post('/upload', upload.single('file'), async (req: Request, res: Respo
   }
 
   const kbId = req.params.kbId as string;
-  const result = await pythonClient.uploadDocument(kbId, file.buffer, file.originalname, MIME_MAP[ext]);
+  // Fix: multer decodes multipart filenames as Latin-1, re-encode from UTF-8 bytes
+  const filename = Buffer.from(file.originalname, 'latin1').toString('utf8');
+  const result = await pythonClient.uploadDocument(kbId, file.buffer, filename, MIME_MAP[ext]);
   res.status(201).json(result);
 });
 
