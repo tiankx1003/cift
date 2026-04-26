@@ -125,7 +125,7 @@ export interface SearchResult {
   chunk_id: string;
   content: string;
   score: number;
-  metadata: { doc_id: string; chunk_index: number };
+  metadata: { doc_id: string; chunk_index: number; filename?: string; start_offset?: number; end_offset?: number };
 }
 
 export interface SearchResponse {
