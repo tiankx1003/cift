@@ -170,7 +170,7 @@ export interface ChunkTaskInfo {
   error_message: string | null;
 }
 
-export const chunkDocument = (kbId: string, docId: string, body: { config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
+export const chunkDocument = (kbId: string, docId: string, body: { config_id?: string; chunk_size?: number; chunk_overlap?: number; separators?: string; strategy?: string; heading_level?: number }) =>
   request<{ task_id: string; doc_id: string; status: string }>(`/kbs/${kbId}/documents/${docId}/chunk`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -188,20 +188,22 @@ export interface ChunkConfigInfo {
   chunk_size: number;
   chunk_overlap: number;
   separators: string;
+  strategy: string;
+  heading_level: number;
   is_default: boolean;
 }
 
 export const listChunkConfigs = (kbId: string) =>
   request<ChunkConfigInfo[]>(`/kbs/${kbId}/chunk-configs`);
 
-export const createChunkConfig = (kbId: string, data: { name: string; chunk_size: number; chunk_overlap: number; separators: string }) =>
+export const createChunkConfig = (kbId: string, data: { name: string; chunk_size: number; chunk_overlap: number; separators: string; strategy?: string; heading_level?: number }) =>
   request<ChunkConfigInfo>(`/kbs/${kbId}/chunk-configs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
 
-export const updateChunkConfig = (kbId: string, configId: string, data: { name?: string; chunk_size?: number; chunk_overlap?: number; separators?: string }) =>
+export const updateChunkConfig = (kbId: string, configId: string, data: { name?: string; chunk_size?: number; chunk_overlap?: number; separators?: string; strategy?: string; heading_level?: number }) =>
   request<ChunkConfigInfo>(`/kbs/${kbId}/chunk-configs/${configId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

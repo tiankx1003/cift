@@ -187,6 +187,101 @@ class MarkdownChunker:
         return sections
 
 
+# Chinese heading patterns for plain text / PDF / DOCX extracted text
+_TXT_HEADING_PATTERNS = [
+    r"^第[一二三四五六七八九十百千\d]+[章章节]\s*",      # 第X章/节
+    r"^[一二三四五六七八九十]+[、．]\s*",                  # 一、
+    r"^[（\(][一二三四五六七八九十]+[）\)]\s*",            # （一）
+    r"^\d+[\.．\s]\s*\S",                                  # 1. 标题
+    r"^\d+\.\d+(?:\.\d+)*\s+\S",                           # 1.1 / 1.1.1 标题
+    r"^[Cc]hapter\s+\d+",                                  # Chapter 1
+]
+
+_TXT_HEADING_RE = re.compile("|".join(_TXT_HEADING_PATTERNS), re.MULTILINE)
+
+
+class StructuralChunker:
+    """Split text by heading/section structure, preserving semantic completeness."""
+
+    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200, heading_level: int = 0):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.heading_level = heading_level  # 1-6 for markdown, 0=auto
+
+    def chunk_text(self, text: str, file_type: str = "txt") -> list[str]:
+        if file_type == "md":
+            return self._chunk_markdown(text)
+        return self._chunk_plain(text)
+
+    # -- Markdown -----------------------------------------------------------
+
+    def _chunk_markdown(self, text: str) -> list[str]:
+        level = self.heading_level if self.heading_level >= 1 else self._auto_detect_md_level(text)
+        pattern = rf"^({'#' * level})\s+(.+)$"
+        heading_re = re.compile(pattern, re.MULTILINE)
+        matches = list(heading_re.finditer(text))
+
+        if not matches:
+            # No headings at this level; fall back to TextChunker
+            return TextChunker(self.chunk_size, self.chunk_overlap).chunk_text(text)
+
+        sections = self._build_sections(text, matches)
+        return self._split_sections(sections)
+
+    def _auto_detect_md_level(self, text: str) -> int:
+        """Pick the heading level that produces the most balanced sections."""
+        best_level = 2
+        best_score = -1
+        for lvl in range(1, 5):  # H1..H4
+            pattern = rf"^({'#' * lvl})\s+(.+)$"
+            count = len(re.findall(pattern, text, re.MULTILINE))
+            if count == 0:
+                continue
+            avg_len = len(text) / count
+            # Prefer levels that produce sections around 1-3x chunk_size
+            score = count if 0.5 * self.chunk_size <= avg_len <= 5 * self.chunk_size else 0
+            if score > best_score:
+                best_score = score
+                best_level = lvl
+        return best_level
+
+    # -- Plain text / PDF / DOCX -------------------------------------------
+
+    def _chunk_plain(self, text: str) -> list[str]:
+        matches = list(_TXT_HEADING_RE.finditer(text))
+        if not matches:
+            return TextChunker(self.chunk_size, self.chunk_overlap).chunk_text(text)
+        sections = self._build_sections(text, matches)
+        return self._split_sections(sections)
+
+    # -- Helpers ------------------------------------------------------------
+
+    @staticmethod
+    def _build_sections(text: str, matches: list[re.Match]) -> list[str]:
+        sections: list[str] = []
+        if matches[0].start() > 0:
+            sections.append(text[: matches[0].start()])
+        for i, match in enumerate(matches):
+            start = match.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+            sections.append(text[start:end])
+        return sections
+
+    def _split_sections(self, sections: list[str]) -> list[str]:
+        chunks: list[str] = []
+        for section in sections:
+            section = section.strip()
+            if not section:
+                continue
+            if len(section) <= self.chunk_size:
+                chunks.append(section)
+            else:
+                # Secondary split with separator alignment
+                sub = TextChunker(self.chunk_size, self.chunk_overlap).chunk_text(section)
+                chunks.extend(sub)
+        return chunks
+
+
 def _find_offset(text: str, chunk: str, start_from: int = 0) -> int:
     """Find the offset of chunk in text starting from start_from."""
     return text.find(chunk, start_from)
@@ -198,16 +293,26 @@ def make_chunks(
     chunk_size: int = 800,
     chunk_overlap: int = 200,
     separators: str = "",
+    strategy: str = "fixed",
+    heading_level: int = 0,
 ) -> list[dict]:
-    """Chunk text and return list of {id, content, metadata, start_offset, end_offset} dicts."""
+    """Chunk text and return list of {id, content, metadata, start_offset, end_offset} dicts.
+
+    Args:
+        strategy: "fixed" (default), "structural" (heading-based), or "markdown" (legacy).
+        heading_level: For structural strategy — heading level 1-6, 0=auto-detect.
+    """
     sep_list = [s.strip() for s in separators.split(",") if s.strip()] if separators else None
 
-    if file_type == "md":
+    if strategy == "structural":
+        chunker = StructuralChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap, heading_level=heading_level)
+        raw_chunks = chunker.chunk_text(text, file_type)
+    elif file_type == "md":
         chunker = MarkdownChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        raw_chunks = chunker.chunk_text(text)
     else:
         chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=sep_list)
-
-    raw_chunks = chunker.chunk_text(text)
+        raw_chunks = chunker.chunk_text(text)
 
     # Compute offsets by finding each chunk in the original text
     result = []

@@ -112,12 +112,16 @@ class ChunkConfigCreate(BaseModel):
     chunk_size: int = 800
     chunk_overlap: int = 200
     separators: str = ""
+    strategy: str = "fixed"       # "fixed" | "structural"
+    heading_level: int = 0        # 0=auto, 1-6
 
 class ChunkConfigUpdate(BaseModel):
     name: str | None = None
     chunk_size: int | None = None
     chunk_overlap: int | None = None
     separators: str | None = None
+    strategy: str | None = None
+    heading_level: int | None = None
 
 class ChunkConfigInfo(BaseModel):
     id: str
@@ -125,6 +129,8 @@ class ChunkConfigInfo(BaseModel):
     chunk_size: int
     chunk_overlap: int
     separators: str
+    strategy: str = "fixed"
+    heading_level: int = 0
     is_default: bool
 
 class ChunkRequest(BaseModel):
@@ -133,6 +139,8 @@ class ChunkRequest(BaseModel):
     chunk_size: int | None = None
     chunk_overlap: int | None = None
     separators: str | None = None
+    strategy: str | None = None
+    heading_level: int | None = None
 
 
 class ChunkTaskResponse(BaseModel):

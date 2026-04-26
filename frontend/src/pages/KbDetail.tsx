@@ -232,6 +232,10 @@ export default function KbDetail() {
       body.chunk_size = values.chunk_size || 800;
       body.chunk_overlap = values.chunk_overlap || 200;
       body.separators = values.separators || '';
+      if (values.strategy) body.strategy = values.strategy;
+      if (values.strategy === 'structural' && values.heading_level !== undefined) {
+        body.heading_level = values.heading_level;
+      }
     }
     let ok = 0, fail = 0;
     for (let i = 0; i < selectedRowKeys.length; i++) {
@@ -287,6 +291,10 @@ export default function KbDetail() {
         body.chunk_size = values.chunk_size || 800;
         body.chunk_overlap = values.chunk_overlap || 200;
         body.separators = values.separators || '';
+        if (values.strategy) body.strategy = values.strategy;
+        if (values.strategy === 'structural' && values.heading_level !== undefined) {
+          body.heading_level = values.heading_level;
+        }
       }
       await api.chunkDocument(kbId, chunkingDocId, body);
       message.success('分段任务已提交');
@@ -716,6 +724,7 @@ export default function KbDetail() {
             pagination={false}
             columns={[
               { title: '名称', dataIndex: 'name' },
+              { title: '策略', dataIndex: 'strategy', width: 90, align: 'center', render: (v: string) => v === 'structural' ? <Tag color="purple">结构化</Tag> : <Tag>固定长度</Tag> },
               { title: '大小', dataIndex: 'chunk_size', width: 70, align: 'center' },
               { title: '重叠', dataIndex: 'chunk_overlap', width: 70, align: 'center' },
               { title: '分隔符', dataIndex: 'separators', width: 100, ellipsis: true, render: (v: string) => v || '-' },
@@ -756,16 +765,41 @@ export default function KbDetail() {
         width={500}
         destroyOnClose
       >
-        <Form layout="vertical" onFinish={handleChunk} autoComplete="off">
+        <Form layout="vertical" onFinish={handleChunk} autoComplete="off" initialValues={{ strategy: 'fixed', heading_level: 0 }}>
           <Form.Item name="config_id" label="使用已保存配置">
             <Select
               allowClear
               placeholder="选择已保存的配置，或留空自定义"
               options={chunkConfigs.map(c => ({
                 value: c.id,
-                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap})`,
+                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap}${c.strategy === 'structural' ? '/结构化' : ''})`,
               }))}
             />
+          </Form.Item>
+          <Form.Item name="strategy" label="分段策略（未选择配置时生效）">
+            <Select
+              options={[
+                { value: 'fixed', label: '固定长度' },
+                { value: 'structural', label: '结构化分段（按标题/章节）' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.strategy !== cur.strategy}>
+            {({ getFieldValue }) =>
+              getFieldValue('strategy') === 'structural' ? (
+                <Form.Item name="heading_level" label="切分层级">
+                  <Select
+                    options={[
+                      { value: 0, label: '自动检测' },
+                      { value: 1, label: 'H1（一级标题）' },
+                      { value: 2, label: 'H2（二级标题）' },
+                      { value: 3, label: 'H3（三级标题）' },
+                      { value: 4, label: 'H4（四级标题）' },
+                    ]}
+                  />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
           <Form.Item label="自定义参数（未选择配置时生效）">
             <Input.Group compact>
@@ -805,10 +839,37 @@ export default function KbDetail() {
             chunk_size: editingConfig.chunk_size,
             chunk_overlap: editingConfig.chunk_overlap,
             separators: editingConfig.separators,
-          } : { chunk_size: 800, chunk_overlap: 200, separators: '' }}
+            strategy: editingConfig.strategy || 'fixed',
+            heading_level: editingConfig.heading_level ?? 0,
+          } : { chunk_size: 800, chunk_overlap: 200, separators: '', strategy: 'fixed', heading_level: 0 }}
         >
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="例如：默认分段" />
+          </Form.Item>
+          <Form.Item name="strategy" label="分段策略">
+            <Select
+              options={[
+                { value: 'fixed', label: '固定长度' },
+                { value: 'structural', label: '结构化分段（按标题/章节）' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.strategy !== cur.strategy}>
+            {({ getFieldValue }) =>
+              getFieldValue('strategy') === 'structural' ? (
+                <Form.Item name="heading_level" label="切分层级">
+                  <Select
+                    options={[
+                      { value: 0, label: '自动检测' },
+                      { value: 1, label: 'H1（一级标题）' },
+                      { value: 2, label: 'H2（二级标题）' },
+                      { value: 3, label: 'H3（三级标题）' },
+                      { value: 4, label: 'H4（四级标题）' },
+                    ]}
+                  />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
@@ -841,16 +902,41 @@ export default function KbDetail() {
         width={500}
         destroyOnClose
       >
-        <Form layout="vertical" onFinish={handleBatchChunk} autoComplete="off">
+        <Form layout="vertical" onFinish={handleBatchChunk} autoComplete="off" initialValues={{ strategy: 'fixed', heading_level: 0 }}>
           <Form.Item name="config_id" label="使用已保存配置">
             <Select
               allowClear
               placeholder="选择已保存的配置，或留空自定义"
               options={chunkConfigs.map(c => ({
                 value: c.id,
-                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap})`,
+                label: `${c.name} (${c.chunk_size}/${c.chunk_overlap}${c.strategy === 'structural' ? '/结构化' : ''})`,
               }))}
             />
+          </Form.Item>
+          <Form.Item name="strategy" label="分段策略（未选择配置时生效）">
+            <Select
+              options={[
+                { value: 'fixed', label: '固定长度' },
+                { value: 'structural', label: '结构化分段（按标题/章节）' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.strategy !== cur.strategy}>
+            {({ getFieldValue }) =>
+              getFieldValue('strategy') === 'structural' ? (
+                <Form.Item name="heading_level" label="切分层级">
+                  <Select
+                    options={[
+                      { value: 0, label: '自动检测' },
+                      { value: 1, label: 'H1（一级标题）' },
+                      { value: 2, label: 'H2（二级标题）' },
+                      { value: 3, label: 'H3（三级标题）' },
+                      { value: 4, label: 'H4（四级标题）' },
+                    ]}
+                  />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
           <Form.Item label="自定义参数（未选择配置时生效）">
             <Input.Group compact>

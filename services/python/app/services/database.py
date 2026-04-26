@@ -64,6 +64,8 @@ class ChunkConfig(Base):
     chunk_size: Mapped[int] = mapped_column(Integer, default=800)
     chunk_overlap: Mapped[int] = mapped_column(Integer, default=200)
     separators: Mapped[str] = mapped_column(Text, default="")
+    strategy: Mapped[str] = mapped_column(String(16), default="fixed")  # "fixed" | "structural"
+    heading_level: Mapped[int] = mapped_column(Integer, default=0)      # 0=auto, 1-6
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 

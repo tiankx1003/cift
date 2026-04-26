@@ -19,7 +19,9 @@ async def list_chunk_configs(kb_id: str, db: AsyncSession = Depends(get_db)):
     configs = result.scalars().all()
     return [ChunkConfigInfo(
         id=c.id, name=c.name, chunk_size=c.chunk_size,
-        chunk_overlap=c.chunk_overlap, separators=c.separators, is_default=c.is_default,
+        chunk_overlap=c.chunk_overlap, separators=c.separators,
+        strategy=c.strategy, heading_level=c.heading_level,
+        is_default=c.is_default,
     ) for c in configs]
 
 
@@ -32,6 +34,8 @@ async def create_chunk_config(kb_id: str, data: ChunkConfigCreate, db: AsyncSess
         chunk_size=data.chunk_size,
         chunk_overlap=data.chunk_overlap,
         separators=data.separators,
+        strategy=data.strategy,
+        heading_level=data.heading_level,
         is_default=False,
     )
     db.add(config)
@@ -39,7 +43,9 @@ async def create_chunk_config(kb_id: str, data: ChunkConfigCreate, db: AsyncSess
     await db.refresh(config)
     return ChunkConfigInfo(
         id=config.id, name=config.name, chunk_size=config.chunk_size,
-        chunk_overlap=config.chunk_overlap, separators=config.separators, is_default=config.is_default,
+        chunk_overlap=config.chunk_overlap, separators=config.separators,
+        strategy=config.strategy, heading_level=config.heading_level,
+        is_default=config.is_default,
     )
 
 
@@ -57,12 +63,18 @@ async def update_chunk_config(kb_id: str, config_id: str, data: ChunkConfigUpdat
         config.chunk_overlap = data.chunk_overlap
     if data.separators is not None:
         config.separators = data.separators
+    if data.strategy is not None:
+        config.strategy = data.strategy
+    if data.heading_level is not None:
+        config.heading_level = data.heading_level
 
     await db.commit()
     await db.refresh(config)
     return ChunkConfigInfo(
         id=config.id, name=config.name, chunk_size=config.chunk_size,
-        chunk_overlap=config.chunk_overlap, separators=config.separators, is_default=config.is_default,
+        chunk_overlap=config.chunk_overlap, separators=config.separators,
+        strategy=config.strategy, heading_level=config.heading_level,
+        is_default=config.is_default,
     )
 
 

@@ -22,7 +22,7 @@ from ..utils import get_settings, logger
 router = APIRouter(prefix="/internal", tags=["chunking"])
 
 
-async def _run_chunk_task(task_id: str, doc_id: str, kb_id: str, chunk_size: int, chunk_overlap: int, separators: str):
+async def _run_chunk_task(task_id: str, doc_id: str, kb_id: str, chunk_size: int, chunk_overlap: int, separators: str, strategy: str = "fixed", heading_level: int = 0):
     """Background task that performs the actual chunking + embedding."""
     settings = get_settings()
     from ..services.database import _get_engine, async_sessionmaker, AsyncSession
@@ -58,7 +58,7 @@ async def _run_chunk_task(task_id: str, doc_id: str, kb_id: str, chunk_size: int
                 pass
 
             # Step 1: Chunk
-            chunks = make_chunks(text, doc.file_type, chunk_size, chunk_overlap, separators)
+            chunks = make_chunks(text, doc.file_type, chunk_size, chunk_overlap, separators, strategy, heading_level)
             if not chunks:
                 doc.status = "completed"
                 doc.chunk_count = 0
@@ -153,6 +153,8 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
     chunk_size = 800
     chunk_overlap = 200
     separators = ""
+    strategy = "fixed"
+    heading_level = 0
 
     if req.config_id:
         config = await db.get(ChunkConfig, req.config_id)
@@ -161,6 +163,8 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
         chunk_size = config.chunk_size
         chunk_overlap = config.chunk_overlap
         separators = config.separators
+        strategy = config.strategy
+        heading_level = config.heading_level
     else:
         if req.chunk_size is not None:
             chunk_size = req.chunk_size
@@ -168,6 +172,10 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
             chunk_overlap = req.chunk_overlap
         if req.separators is not None:
             separators = req.separators
+        if req.strategy is not None:
+            strategy = req.strategy
+        if req.heading_level is not None:
+            heading_level = req.heading_level
 
     # Update doc status
     doc.status = "processing"
@@ -188,7 +196,7 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
     await db.commit()
 
     # Launch background task
-    asyncio.ensure_future(_run_chunk_task(task_id, doc_id, req.kb_id, chunk_size, chunk_overlap, separators))
+    asyncio.ensure_future(_run_chunk_task(task_id, doc_id, req.kb_id, chunk_size, chunk_overlap, separators, strategy, heading_level))
 
     return {"task_id": task_id, "doc_id": doc_id, "status": "pending"}
 
