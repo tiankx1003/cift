@@ -116,6 +116,10 @@ docRouter.get('/:docId/chunks', async (req: Request, res: Response) => {
 docRouter.post('/:docId/chunk', async (req: Request, res: Response) => {
   const kbId = req.params.kbId as string;
   const docId = req.params.docId as string;
-  const result = await pythonClient.chunkDocument(docId, { kb_id: kbId, ...req.body });
-  res.json(result);
+  try {
+    const result = await pythonClient.chunkDocument(docId, { kb_id: kbId, ...req.body });
+    res.json(result);
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
 });
