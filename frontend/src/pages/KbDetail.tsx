@@ -24,16 +24,6 @@ import {
   Select,
   Alert,
 } from 'antd';
-  Spin,
-  Empty,
-  Row,
-  Col,
-  Progress,
-  Statistic,
-  Modal,
-  Form,
-  Select,
-} from 'antd';
 import {
   UploadOutlined,
   ArrowLeftOutlined,
@@ -43,7 +33,6 @@ import {
   FileMarkdownOutlined,
   DatabaseOutlined,
   AppstoreOutlined,
-  EyeOutlined,
   ScissorOutlined,
   PlusOutlined,
   EditOutlined,
@@ -95,10 +84,6 @@ export default function KbDetail() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<api.SearchResult[]>([]);
   const [searchDone, setSearchDone] = useState(false);
-
-  const [chunksModalOpen, setChunksModalOpen] = useState(false);
-  const [chunksData, setChunksData] = useState<api.ChunksResponse | null>(null);
-  const [chunksLoading, setChunksLoading] = useState(false);
 
   const [chunkModalOpen, setChunkModalOpen] = useState(false);
   const [chunkingDocId, setChunkingDocId] = useState<string>('');
@@ -234,21 +219,6 @@ export default function KbDetail() {
       message.error(e.message);
     } finally {
       setSearching(false);
-    }
-  };
-
-  const handleViewChunks = async (docId: string) => {
-    if (!kbId) return;
-    try {
-      setChunksLoading(true);
-      setChunksModalOpen(true);
-      const res = await api.getDocumentChunks(kbId, docId);
-      setChunksData(res);
-    } catch (e: any) {
-      message.error(e.message);
-      setChunksModalOpen(false);
-    } finally {
-      setChunksLoading(false);
     }
   };
 
@@ -803,50 +773,6 @@ export default function KbDetail() {
             <Button type="primary" htmlType="submit">{editingConfig ? '保存' : '创建'}</Button>
           </Form.Item>
         </Form>
-      </Modal>
-
-      {/* Chunks Modal */}
-      <Modal
-        title={chunksData ? `${chunksData.filename} — 分块详情` : '分块详情'}
-        open={chunksModalOpen}
-        onCancel={() => { setChunksModalOpen(false); setChunksData(null); }}
-        footer={null}
-        width={700}
-      >
-        {chunksLoading ? (
-          <Spin style={{ display: 'block', margin: '40px auto' }} />
-        ) : chunksData ? (
-          chunksData.chunks.length === 0 ? (
-            <Empty description="暂无分块数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          ) : (
-            <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
-              {chunksData.chunks.map((chunk) => (
-                <Card
-                  key={chunk.chunk_index}
-                  size="small"
-                  style={{ marginBottom: 12, borderRadius: 6 }}
-                  title={
-                    <span>
-                      分块 #{chunk.chunk_index}
-                      <Tag style={{ marginLeft: 8 }}>{chunk.char_count} 字符</Tag>
-                    </span>
-                  }
-                >
-                  <pre style={{
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                    fontFamily: 'inherit',
-                  }}>
-                    {chunk.content}
-                  </pre>
-                </Card>
-              ))}
-            </div>
-          )
-        ) : null}
       </Modal>
 
       {/* Batch Chunk Modal */}
