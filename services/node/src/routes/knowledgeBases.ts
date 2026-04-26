@@ -7,6 +7,27 @@ export const kbRouter = Router();
 
 kbRouter.use(authRequired);
 
+/**
+ * @openapi
+ * /kbs:
+ *   get:
+ *     tags: [Knowledge Bases]
+ *     summary: 获取知识库列表
+ *     responses:
+ *       200:
+ *         description: 知识库列表
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   kb_id: { type: string }
+ *                   name: { type: string }
+ *                   description: { type: string }
+ *                   doc_count: { type: integer }
+ */
 // GET /api/kbs
 kbRouter.get('/', async (req: Request, res: Response) => {
   const result = await pool.query(
@@ -16,6 +37,25 @@ kbRouter.get('/', async (req: Request, res: Response) => {
   res.json(result.rows);
 });
 
+/**
+ * @openapi
+ * /kbs:
+ *   post:
+ *     tags: [Knowledge Bases]
+ *     summary: 创建知识库
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string, example: "我的知识库" }
+ *               description: { type: string }
+ *     responses:
+ *       201: { description: 创建成功 }
+ */
 // POST /api/kbs
 kbRouter.post('/', async (req: Request, res: Response) => {
   const { name, description } = req.body;
@@ -77,8 +117,42 @@ kbRouter.put('/:kbId', async (req: Request, res: Response) => {
   res.json(result.rows[0]);
 });
 
-// DELETE /api/kbs/:kbId
-kbRouter.delete('/:kbId', async (req: Request, res: Response) => {
+/**
+ * @openapi
+ * /kbs/{kbId}:
+ *   get:
+ *     tags: [Knowledge Bases]
+ *     summary: 获取知识库详情
+ *     parameters:
+ *       - { name: kbId, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: 知识库详情 }
+ *       404: { description: 知识库不存在 }
+ *   put:
+ *     tags: [Knowledge Bases]
+ *     summary: 更新知识库
+ *     parameters:
+ *       - { name: kbId, in: path, required: true, schema: { type: string } }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       200: { description: 更新成功 }
+ *   delete:
+ *     tags: [Knowledge Bases]
+ *     summary: 删除知识库
+ *     parameters:
+ *       - { name: kbId, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: 删除成功 }
+ */
+// GET /api/kbs/:kbId
+kbRouter.get('/:kbId', async (req: Request, res: Response) => {
   const existing = await pool.query(
     'SELECT id FROM knowledge_bases WHERE id = $1 AND user_id = $2',
     [req.params.kbId, req.user!.userId]

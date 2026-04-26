@@ -12,6 +12,28 @@ function signToken(userId: string, username: string) {
   return jwt.sign({ userId, username }, config.jwtSecret, { expiresIn: '24h' });
 }
 
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 用户注册
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string, example: admin }
+ *               password: { type: string, example: "123456" }
+ *     responses:
+ *       201: { description: 注册成功 }
+ *       400: { description: 参数错误 }
+ *       409: { description: 用户名已存在 }
+ */
 // POST /api/auth/register
 authRouter.post('/register', async (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -38,6 +60,27 @@ authRouter.post('/register', async (req: Request, res: Response) => {
   res.status(201).json({ user: { id, username }, token });
 });
 
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: 用户登录
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       200: { description: 登录成功，返回 JWT }
+ *       401: { description: 凭据无效 }
+ */
 // POST /api/auth/login
 authRouter.post('/login', async (req: Request, res: Response) => {
   const { username, password } = req.body;
@@ -63,6 +106,16 @@ authRouter.post('/login', async (req: Request, res: Response) => {
   res.json({ user: { id: user.id, username: user.username }, token });
 });
 
+/**
+ * @openapi
+ * /auth/me:
+ *   get:
+ *     tags: [Auth]
+ *     summary: 获取当前用户信息
+ *     responses:
+ *       200: { description: 用户信息 }
+ *       401: { description: 未认证 }
+ */
 // GET /api/auth/me
 authRouter.get('/me', authRequired, async (req: Request, res: Response) => {
   const result = await pool.query('SELECT id, username, created_at FROM users WHERE id = $1', [req.user!.userId]);

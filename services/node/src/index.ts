@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { config } from './config.js';
 import { migrate } from './db.js';
 import { ensureBucket } from './services/minioClient.js';
@@ -12,6 +13,7 @@ import { chunkConfigRouter } from './routes/chunkConfigs.js';
 import { modelConfigRouter } from './routes/modelConfigs.js';
 import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
 import { apiKeyRouter } from './routes/apiKeys.js';
+import { swaggerSpec } from './swagger.js';
 
 const app = express();
 
@@ -27,6 +29,9 @@ app.use('/api/kbs/:kbId/chunk-configs', chunkConfigRouter);
 app.use('/api/models', modelConfigRouter);
 app.use('/api/kbs/:kbId/knowledge-graphs', knowledgeGraphRouter);
 app.use('/api/api-keys', apiKeyRouter);
+
+// Swagger API docs
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use(errorHandler);
 

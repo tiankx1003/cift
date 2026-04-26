@@ -8,6 +8,16 @@ export const apiKeyRouter = Router();
 
 apiKeyRouter.use(authRequired);
 
+/**
+ * @openapi
+ * /api-keys:
+ *   get:
+ *     tags: [API Keys]
+ *     summary: 获取 API Key 列表
+ *     responses:
+ *       200:
+ *         description: API Key 列表（key 脱敏）
+ */
 // GET /api/api-keys
 apiKeyRouter.get('/', async (req: Request, res: Response) => {
   const { rows } = await pool.query(
@@ -22,6 +32,25 @@ apiKeyRouter.get('/', async (req: Request, res: Response) => {
   success(res, items);
 });
 
+/**
+ * @openapi
+ * /api-keys:
+ *   post:
+ *     tags: [API Keys]
+ *     summary: 创建 API Key
+ *     description: 返回完整 key，仅此一次展示
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name]
+ *             properties:
+ *               name: { type: string, example: "Dify 外部知识库" }
+ *     responses:
+ *       201: { description: 创建成功，返回完整 key }
+ */
 // POST /api/api-keys
 apiKeyRouter.post('/', async (req: Request, res: Response) => {
   const { name } = req.body;
@@ -46,6 +75,18 @@ apiKeyRouter.post('/', async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * @openapi
+ * /api-keys/{id}:
+ *   delete:
+ *     tags: [API Keys]
+ *     summary: 删除 API Key
+ *     parameters:
+ *       - { name: id, in: path, required: true, schema: { type: string } }
+ *     responses:
+ *       200: { description: 删除成功 }
+ *       404: { description: API Key 不存在 }
+ */
 // DELETE /api/api-keys/:id
 apiKeyRouter.delete('/:id', async (req: Request, res: Response) => {
   const { rows } = await pool.query(
