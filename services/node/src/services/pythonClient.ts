@@ -76,6 +76,19 @@ export const pythonClient = {
     });
   },
 
+  retrieval: (knowledgeId: string, query: string, topK: number, scoreThreshold: number) => {
+    type RR = { records: Array<{ content: string; score: number; title: string; metadata: Record<string, unknown> }> };
+    return request<RR>('/internal/retrieval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        knowledge_id: knowledgeId,
+        query,
+        retrieval_setting: { top_k: topK, score_threshold: scoreThreshold },
+      }),
+    });
+  },
+
   getDocumentChunks: (docId: string, kbId: string) =>
     request<{ chunks: Array<{ chunk_index: number; content: string; char_count: number }> }>(
       `/internal/documents/${docId}/chunks?kb_id=${kbId}`

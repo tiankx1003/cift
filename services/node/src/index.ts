@@ -13,6 +13,7 @@ import { chunkConfigRouter } from './routes/chunkConfigs.js';
 import { modelConfigRouter } from './routes/modelConfigs.js';
 import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
 import { apiKeyRouter } from './routes/apiKeys.js';
+import { retrievalRouter } from './routes/retrieval.js';
 import { swaggerSpec } from './swagger.js';
 
 const app = express();
@@ -32,6 +33,9 @@ app.use('/api/api-keys', apiKeyRouter);
 
 // Swagger API docs
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Dify-compatible retrieval endpoint (uses API Key auth)
+app.use('/api/retrieval', retrievalRouter);
 
 app.use(errorHandler);
 

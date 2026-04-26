@@ -61,6 +61,28 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
 
 
+# --- Dify Retrieval ---
+
+class DifyRetrievalSetting(BaseModel):
+    top_k: int = 3
+    score_threshold: float = 0.0
+
+class DifyRetrievalRequest(BaseModel):
+    knowledge_id: str
+    query: str
+    retrieval_setting: DifyRetrievalSetting
+    metadata_condition: dict | None = None
+
+class DifyRecord(BaseModel):
+    content: str
+    score: float
+    title: str
+    metadata: dict = {}
+
+class DifyRetrievalResponse(BaseModel):
+    records: list[DifyRecord]
+
+
 # --- Vectors ---
 
 class VectorDeleteRequest(BaseModel):
