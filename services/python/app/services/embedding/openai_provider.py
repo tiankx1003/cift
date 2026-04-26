@@ -25,6 +25,7 @@ class OpenAIProvider(BaseEmbeddingProvider):
             dim_map = {
                 "text-embedding-3-small": 1536,
                 "text-embedding-3-large": 3072,
+                "bge-m3-mlx-fp16": 1024,
             }
             self._dimension = dim_map.get(self.model, 1536)
         return self._dimension
