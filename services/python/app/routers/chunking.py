@@ -66,7 +66,7 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
         except Exception:
             pass
 
-        # Chunk
+        # Step 1: Chunk
         chunks = make_chunks(text, doc.file_type, chunk_size, chunk_overlap, separators)
         if not chunks:
             doc.status = "completed"
@@ -74,28 +74,33 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
             await db.commit()
             return {"doc_id": doc_id, "status": "completed", "chunk_count": 0}
 
-        # Embed
+        # Step 2: Embed in batches and store incrementally
         provider = create_embedding_provider(settings)
-        texts = [c["content"] for c in chunks]
-        embeddings = await provider.embed(texts)
-
-        # Store in ChromaDB
         chroma = get_chroma_client(settings)
         collection = get_or_create_collection(chroma, req.kb_id, provider.dimension)
-        collection.add(
-            ids=[c["id"] for c in chunks],
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=[
-                {
-                    "doc_id": doc_id,
-                    "chunk_index": c["metadata"]["chunk_index"],
-                    "start_offset": c["start_offset"],
-                    "end_offset": c["end_offset"],
-                }
-                for c in chunks
-            ],
-        )
+
+        BATCH = 32
+        stored = 0
+        for i in range(0, len(chunks), BATCH):
+            batch = chunks[i:i + BATCH]
+            batch_texts = [c["content"] for c in batch]
+            embeddings = await provider.embed(batch_texts)
+            collection.add(
+                ids=[c["id"] for c in batch],
+                embeddings=embeddings,
+                documents=batch_texts,
+                metadatas=[
+                    {
+                        "doc_id": doc_id,
+                        "chunk_index": c["metadata"]["chunk_index"],
+                        "start_offset": c["start_offset"],
+                        "end_offset": c["end_offset"],
+                    }
+                    for c in batch
+                ],
+            )
+            stored += len(batch)
+            logger.info(f"Embedded batch {i // BATCH + 1}/{(len(chunks) + BATCH - 1) // BATCH}, doc={doc_id}, progress={stored}/{len(chunks)}")
 
         # Update document
         old_chunk_count = doc.chunk_count or 0
