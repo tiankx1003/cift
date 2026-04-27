@@ -23,6 +23,7 @@ import {
   Form,
   Select,
   Alert,
+  Tooltip,
 } from 'antd';
 import {
   UploadOutlined,
@@ -37,6 +38,9 @@ import {
   PlusOutlined,
   EditOutlined,
   StarOutlined,
+  ExportOutlined,
+  EyeOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import * as api from '../api';
 
@@ -91,6 +95,8 @@ export default function KbDetail() {
   const [searchSimilarityThreshold, setSearchSimilarityThreshold] = useState(0.3);
   const [searchVectorWeight, setSearchVectorWeight] = useState(0.7);
   const [searchHybridThreshold, setSearchHybridThreshold] = useState(0.0);
+  const [searchMode, setSearchMode] = useState<string>('vector');
+  const [useRerank, setUseRerank] = useState(false);
 
   const [chunkModalOpen, setChunkModalOpen] = useState(false);
   const [chunkingDocId, setChunkingDocId] = useState<string>('');
@@ -109,6 +115,15 @@ export default function KbDetail() {
   // Async chunking progress
   const [chunkProgress, setChunkProgress] = useState<Record<string, api.ChunkTaskInfo>>({});
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Upload status polling
+  const uploadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Preview modal
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewContent, setPreviewContent] = useState<string>('');
+  const [previewFilename, setPreviewFilename] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!kbId) return;
@@ -166,11 +181,43 @@ export default function KbDetail() {
     };
   }, [kbId, docs, fetchData]);
 
+  // Poll document status after upload (every 3s until all stable)
+  useEffect(() => {
+    const pollUploadStatus = async () => {
+      if (!kbId) return;
+      const unstableDocs = docs.filter(d => d.status === 'parsing' || d.status === 'processing');
+      if (unstableDocs.length === 0) {
+        if (uploadPollRef.current) {
+          clearInterval(uploadPollRef.current);
+          uploadPollRef.current = null;
+        }
+        return;
+      }
+      try {
+        const docsData = await api.listDocuments(kbId);
+        setDocs(docsData);
+      } catch { /* ignore */ }
+    };
+
+    if (docs.some(d => d.status === 'parsing' || d.status === 'processing')) {
+      if (!uploadPollRef.current) {
+        uploadPollRef.current = setInterval(pollUploadStatus, 3000);
+      }
+    }
+
+    return () => {
+      if (uploadPollRef.current) {
+        clearInterval(uploadPollRef.current);
+        uploadPollRef.current = null;
+      }
+    };
+  }, [kbId, docs]);
+
   const handleBatchUpload = async (files: File[]) => {
     if (!kbId) return;
     const validFiles = files.filter(file => {
       const ext = file.name.split('.').pop()?.toLowerCase();
-      return ['txt', 'md', 'pdf', 'docx'].includes(ext || '');
+      return ['txt', 'md', 'pdf', 'docx', 'csv', 'json'].includes(ext || '');
     });
     const invalidCount = files.length - validFiles.length;
     if (invalidCount > 0) {
@@ -267,6 +314,8 @@ export default function KbDetail() {
         similarity_threshold: searchSimilarityThreshold,
         vector_weight: searchVectorWeight,
         hybrid_threshold: searchHybridThreshold,
+        use_rerank: useRerank,
+        search_mode: searchMode,
       });
       setResults(res.results);
     } catch (e: any) {
@@ -359,6 +408,22 @@ export default function KbDetail() {
     }
   };
 
+  const handlePreview = async (docId: string, filename: string) => {
+    if (!kbId) return;
+    setPreviewLoading(true);
+    setPreviewFilename(filename);
+    setPreviewOpen(true);
+    try {
+      const res = await api.previewDocument(kbId, docId);
+      setPreviewContent(res.content);
+    } catch (e: any) {
+      message.error(e.message);
+      setPreviewOpen(false);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   if (loading) {
     return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
   }
@@ -367,12 +432,23 @@ export default function KbDetail() {
     return <Empty description="知识库不存在" style={{ marginTop: 80 }} />;
   }
 
-  const totalChunks = docs.reduce((sum, d) => sum + (d.chunk_count || 0), 0);
+  const totalChunks = kb.total_chunks || docs.reduce((sum, d) => sum + (d.chunk_count || 0), 0);
+  const totalVectors = kb.total_vectors || 0;
+  const totalFileSize = docs.reduce((sum, d) => sum + (d.file_size || 0), 0);
   const completedDocs = docs.filter(d => d.status === 'completed').length;
+
+  const formatSize = (bytes: number) => {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
+  };
 
   const fileTypeIcon = (fileType: string) => {
     if (fileType === 'md' || fileType === 'markdown') return <FileMarkdownOutlined style={{ color: '#722ed1' }} />;
     if (fileType === 'pdf') return <FileTextOutlined style={{ color: '#f5222d' }} />;
+    if (fileType === 'csv') return <FileTextOutlined style={{ color: '#52c41a' }} />;
+    if (fileType === 'json') return <FileTextOutlined style={{ color: '#fa8c16' }} />;
     return <FileTextOutlined style={{ color: '#1677ff' }} />;
   };
 
@@ -401,11 +477,26 @@ export default function KbDetail() {
         />
         <Title level={4} style={{ margin: 0, flex: 1 }}>{kb.name}</Title>
         {kb.description && <Text type="secondary">{kb.description}</Text>}
+        <Button
+          icon={<MessageOutlined />}
+          onClick={() => navigate(`/kb/${kbId}/chat`)}
+          size="small"
+          type="primary"
+        >
+          对话
+        </Button>
+        <Button
+          icon={<ExportOutlined />}
+          onClick={() => api.exportKb(kbId!, 'json')}
+          size="small"
+        >
+          导出
+        </Button>
       </div>
 
       {/* Stats Row */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={6}>
           <Card style={{ borderRadius: 8 }}>
             <Statistic
               title="文档数"
@@ -416,7 +507,7 @@ export default function KbDetail() {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={6}>
           <Card style={{ borderRadius: 8 }}>
             <Statistic
               title="分块数"
@@ -427,14 +518,24 @@ export default function KbDetail() {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={12} sm={6}>
           <Card style={{ borderRadius: 8 }}>
             <Statistic
               title="向量数"
-              value={kb.doc_count}
+              value={totalVectors}
               prefix={<DatabaseOutlined />}
               valueStyle={{ color: '#52c41a' }}
               suffix="条"
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card style={{ borderRadius: 8 }}>
+            <Statistic
+              title="存储大小"
+              value={formatSize(totalFileSize)}
+              prefix={<DatabaseOutlined />}
+              valueStyle={{ color: '#fa8c16' }}
             />
           </Card>
         </Col>
@@ -452,7 +553,7 @@ export default function KbDetail() {
         style={{ marginBottom: 24, borderRadius: 8 }}
       >
         <Upload
-          accept=".txt,.md,.pdf,.docx"
+          accept=".txt,.md,.pdf,.docx,.csv,.json"
           showUploadList={false}
           multiple
           beforeUpload={(file, fileList) => {
@@ -466,11 +567,11 @@ export default function KbDetail() {
           <Button icon={<UploadOutlined />} loading={uploading} type="primary">
             {uploading
               ? `处理中 (${uploadProgress?.current}/${uploadProgress?.total})...`
-              : '选择文件 (.txt / .md / .pdf / .docx)'}
+              : '选择文件 (.txt / .md / .pdf / .docx / .csv / .json)'}
           </Button>
         </Upload>
         <Text type="secondary" style={{ marginLeft: 12 }}>
-          支持 .txt、.md、.pdf、.docx，最大 10MB
+          支持 .txt、.md、.pdf、.docx、.csv、.json，最大 10MB
         </Text>
       </Card>
 
@@ -558,13 +659,27 @@ export default function KbDetail() {
               {
                 title: '状态',
                 dataIndex: 'status',
-                width: 80,
+                width: 100,
                 align: 'center',
-                render: (s: string) => (
-                  <Tag color={s === 'completed' ? 'green' : s === 'failed' || s === 'parse_failed' ? 'red' : s === 'uploaded' ? 'blue' : 'orange'}>
-                    {s === 'completed' ? '完成' : s === 'failed' || s === 'parse_failed' ? '失败' : s === 'uploaded' ? '待分段' : '处理中'}
-                  </Tag>
-                ),
+                render: (s: string, record: api.DocumentInfo) => {
+                  if (s === 'processing') {
+                    return <span style={{ color: '#fa8c16' }}><Spin size="small" /> 处理中</span>;
+                  }
+                  if (s === 'completed') {
+                    return <Tag color="green">完成</Tag>;
+                  }
+                  if (s === 'failed' || s === 'parse_failed') {
+                    return (
+                      <Tooltip title={record.error_message || '未知错误'}>
+                        <Tag color="red" style={{ cursor: 'pointer' }}>失败</Tag>
+                      </Tooltip>
+                    );
+                  }
+                  if (s === 'uploaded') {
+                    return <Tag color="blue">待分段</Tag>;
+                  }
+                  return <Tag color="orange">{s}</Tag>;
+                },
               },
               {
                 title: '分块',
@@ -605,10 +720,16 @@ export default function KbDetail() {
               },
               {
                 title: '操作',
-                width: 120,
+                width: 160,
                 align: 'center',
                 render: (_: unknown, record: api.DocumentInfo) => (
                   <Space size="small">
+                    <Button
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => handlePreview(record.doc_id, record.filename)}
+                      title="预览"
+                    />
                     <Button
                       size="small"
                       type={record.status === 'uploaded' ? 'primary' : 'default'}
@@ -680,6 +801,35 @@ export default function KbDetail() {
           </Button>
           {searchParamsExpanded && (
             <Card size="small" style={{ marginTop: 8, background: '#fafafa' }}>
+              <div style={{ marginBottom: 12 }}>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>检索模式</Text>
+                <Space>
+                  {[
+                    { value: 'vector', label: '语义搜索' },
+                    { value: 'bm25', label: '关键词搜索' },
+                    { value: 'hybrid', label: '混合搜索' },
+                  ].map(m => (
+                    <Button
+                      key={m.value}
+                      size="small"
+                      type={searchMode === m.value ? 'primary' : 'default'}
+                      onClick={() => setSearchMode(m.value)}
+                    >
+                      {m.label}
+                    </Button>
+                  ))}
+                </Space>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <Space>
+                  <Text type="secondary" style={{ fontSize: 12 }}>启用重排序</Text>
+                  <input
+                    type="checkbox"
+                    checked={useRerank}
+                    onChange={(e) => setUseRerank(e.target.checked)}
+                  />
+                </Space>
+              </div>
               <Row gutter={16}>
                 <Col span={12}>
                   <div style={{ marginBottom: 8 }}>
@@ -770,6 +920,12 @@ export default function KbDetail() {
                   <Tag color={item.score > 0.6 ? 'green' : item.score > 0.3 ? 'blue' : 'default'}>
                     {(item.score * 100).toFixed(1)}%
                   </Tag>
+                  {item.rerank_score != null && (
+                    <Tag color="purple" style={{ fontSize: 10 }}>Rerank: {(item.rerank_score * 100).toFixed(1)}%</Tag>
+                  )}
+                  {item.bm25_score != null && (
+                    <Tag color="orange" style={{ fontSize: 10 }}>BM25</Tag>
+                  )}
                 </div>
                 <Progress
                   percent={Math.round(item.score * 100)}
@@ -1047,6 +1203,33 @@ export default function KbDetail() {
             <Button type="primary" htmlType="submit">执行分段</Button>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Document Preview Modal */}
+      <Modal
+        title={`预览: ${previewFilename}`}
+        open={previewOpen}
+        onCancel={() => setPreviewOpen(false)}
+        footer={null}
+        width={800}
+      >
+        {previewLoading ? (
+          <Spin style={{ display: 'block', margin: '40px auto' }} />
+        ) : (
+          <pre style={{
+            maxHeight: 600,
+            overflow: 'auto',
+            background: '#f5f5f5',
+            padding: 16,
+            borderRadius: 8,
+            fontSize: 13,
+            lineHeight: 1.6,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}>
+            {previewContent}
+          </pre>
+        )}
       </Modal>
     </div>
   );

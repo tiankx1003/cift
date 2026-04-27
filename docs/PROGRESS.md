@@ -2,6 +2,63 @@
 
 ## 2026-04-27
 
+### Phase 5 完成 ✅
+
+核心目标：RAG 对话问答、检索质量提升、管理能力完善
+
+- [x] **TASK 016: KB 管理增强**
+  - KB 详情页统计面板：从后端获取真实分块数和向量数 + 文件大小统计
+  - Chunk 导出：支持 JSON/CSV 格式，Python ChromaDB 查询 → Node 代理 → 前端下载
+  - 文档状态展示：processing 显示 Spin、failed 显示错误 Tooltip、上传后自动轮询
+
+- [x] **TASK 017: 文件格式扩展 + 文档在线预览**
+  - 新增 CsvParser（stdlib csv 模块，多编码支持）和 JsonParser（数组/对象/嵌套展平）
+  - Python/Node/前端三方同步扩展支持 `.csv`、`.json`
+  - 文档预览：Python 返回 extracted_text，Node 代理，前端 Modal 展示
+
+- [x] **TASK 018: Rerank 重排序串联**
+  - 搜索接口新增 `use_rerank` 参数，查询活跃 Rerank 模型
+  - 启用时多召回 `top_k × 3` 候选，经 Rerank 后取 top_k
+  - 无 Rerank 模型或调用失败时降级为纯向量搜索
+  - 前端搜索参数面板新增「启用重排序」开关，结果展示 rerank_score
+
+- [x] **TASK 019: 混合检索（BM25 + 向量）**
+  - Python 新增 `BM25Index` 类（英文空格分词 + 中文单字/双字组合）
+  - 搜索接口新增 `search_mode` 参数：`vector`/`bm25`/`hybrid`
+  - hybrid 模式：向量搜索 + BM25 搜索，按 `vector_weight` 加权融合
+  - BM25 分数 min-max 归一化到 0-1
+  - 前端搜索面板新增检索模式选择（语义/关键词/混合）
+
+- [x] **TASK 020: RAG 对话问答**
+  - **20.1 对话基础能力**
+    - PostgreSQL 新增 `chat_sessions`、`chat_messages` 表
+    - LLM 流式支持：`OpenAILLMClient.chat_stream()` 使用 httpx SSE 流
+    - Python Chat Router：会话 CRUD + SSE 流式对话（query → 搜索 → 拼 prompt → LLM stream → SSE events）
+    - Node Chat Router：CRUD 代理 + SSE 流 pipe
+    - 前端 Chat 页面：左侧会话列表 + 右侧消息区 + 流式逐字展示 + 引用来源展示
+    - KbDetail 页新增「对话」按钮跳转到 `/kb/:kbId/chat`
+  - **20.2 Prompt 模板管理**
+    - PostgreSQL 新增 `prompt_templates` 表
+    - Python/Node CRUD 端点（按 KB 隔离 + 全局模板）
+    - 默认模板：知识库问答助手 + {context}/{question} 变量
+    - 对话接口自动加载 KB 默认模板
+
+### 新增文件
+- `services/python/app/services/parser/csv_parser.py` — CSV 解析器
+- `services/python/app/services/parser/json_parser.py` — JSON 解析器
+- `services/python/app/services/bm25.py` — BM25 搜索引擎
+- `services/python/app/routers/export.py` — Chunk 导出端点
+- `services/python/app/routers/documents.py` — 文档预览端点
+- `services/python/app/routers/chat.py` — 对话路由（会话 CRUD + SSE 流）
+- `services/python/app/routers/prompts.py` — Prompt 模板 CRUD
+- `services/node/src/routes/export.ts` — 导出代理
+- `services/node/src/routes/chat.ts` — 对话路由代理 + SSE pipe
+- `services/node/src/routes/prompts.ts` — Prompt 模板代理
+- `frontend/src/pages/Chat.tsx` — 对话 UI 页面
+
+### Docker 构建验证通过
+- `docker compose build` 全部通过（Python/Node/Frontend）
+
 ### Phase 4 完成
 
 - [x] **TASK 013: 分段能力强化**
@@ -222,8 +279,8 @@
 **方向二：搜索召回优化**
 - [x] 搜索参数可调（top-k、相似度阈值）— TASK 14.1
 - [x] 召回结果展示优化（来源文档、分块编号）— TASK 14.2
-- [ ] Rerank 重排序串联
-- [ ] 混合检索（向量 + 关键词 BM25）
+- [x] Rerank 重排序串联 — TASK 018 (Phase 5)
+- [x] 混合检索（向量 + 关键词 BM25）— TASK 019 (Phase 5)
 
 **方向三：开放接口能力**
 - [x] 统一 API 响应格式 + 错误码规范 — TASK 15.2
@@ -232,10 +289,23 @@
 - [x] API 文档（Swagger/OpenAPI）— TASK 15.3
 - [x] Dify 兼容检索接口 — TASK 15.5
 
+### Phase 5 路线图（2026-04-27 规划）— ✅ 已完成
+
+核心目标：RAG 对话问答、检索质量提升、管理能力完善
+
+| # | Task | 方向 | 复杂度 | 状态 |
+|---|------|------|--------|------|
+| 016 | RAG 对话问答 | 核心功能 | 高 | ✅ 已完成 |
+| 017 | Rerank 重排序串联 | 检索质量 | 中 | ✅ 已完成 |
+| 018 | 混合检索（BM25 + 向量） | 检索质量 | 中 | ✅ 已完成 |
+| 019 | 知识库管理增强 | 管理完善 | 低 | ✅ 已完成 |
+| 020 | 文件格式扩展 + 文档在线预览 | 文件能力 | 中 | ✅ 已完成 |
+
+**执行顺序：** 019 → 020 → 017 → 018 → 016
+
 **⏸️ 暂缓**
-- 知识库统计面板
-- 文件格式扩展（CSV、JSON）
-- 文档解析状态展示
+- LLM 智能分段（TASK 013.2 可选）
+- 分段质量评估（TASK 013.3 可选）
 - HTTPS + 密钥管理
 - 多租户/权限管理
 

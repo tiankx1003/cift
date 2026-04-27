@@ -8,6 +8,7 @@ import KbDetail from './pages/KbDetail';
 import Manage from './pages/Manage';
 import ChunkPreview from './pages/ChunkPreview';
 import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
+import Chat from './pages/Chat';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
             <Route element={<BasicLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/kb/:kbId" element={<KbDetail />} />
+              <Route path="/kb/:kbId/chat" element={<Chat />} />
               <Route path="/manage" element={<Manage />} />
               <Route path="/kb/:kbId/documents/:docId/preview" element={<ChunkPreview />} />
               <Route path="/graph" element={<KnowledgeGraphPage />} />

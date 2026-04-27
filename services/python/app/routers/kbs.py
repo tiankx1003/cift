@@ -42,7 +42,27 @@ async def get_kb(kb_id: str, db: AsyncSession = Depends(get_db)):
     kb = await db.get(KnowledgeBase, kb_id)
     if not kb:
         raise HTTPException(status_code=404, detail=f"Knowledge base '{kb_id}' not found")
-    return KbInfo(kb_id=kb.id, name=kb.name, description=kb.description, doc_count=kb.doc_count)
+
+    # Total chunks from documents
+    result = await db.execute(
+        select(func.coalesce(func.sum(Document.chunk_count), 0)).where(Document.kb_id == kb_id)
+    )
+    total_chunks = result.scalar() or 0
+
+    # Total vectors from ChromaDB
+    total_vectors = 0
+    try:
+        settings = get_settings()
+        chroma = get_chroma_client(settings)
+        collection = chroma.get_collection(kb_id)
+        total_vectors = collection.count()
+    except Exception:
+        pass
+
+    return KbInfo(
+        kb_id=kb.id, name=kb.name, description=kb.description, doc_count=kb.doc_count,
+        total_chunks=total_chunks, total_vectors=total_vectors,
+    )
 
 
 @router.delete("/{kb_id}")
@@ -77,6 +97,7 @@ async def list_documents(kb_id: str, db: AsyncSession = Depends(get_db)):
             doc_id=d.id, filename=d.filename, file_type=d.file_type,
             file_size=d.file_size, status=d.status, chunk_count=d.chunk_count,
             chunk_size=d.chunk_size, chunk_overlap=d.chunk_overlap, separators=d.separators,
+            error_message=d.error_message,
         )
         for d in docs
     ]

@@ -8,12 +8,14 @@ export const docRouter = Router({ mergeParams: true });
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const ALLOWED = new Set(['.txt', '.md', '.pdf', '.docx']);
+const ALLOWED = new Set(['.txt', '.md', '.pdf', '.docx', '.csv', '.json']);
 const MIME_MAP: Record<string, string> = {
   '.txt': 'text/plain',
   '.md': 'text/markdown',
   '.pdf': 'application/pdf',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
 };
 
 docRouter.use(authRequired);
@@ -51,7 +53,7 @@ docRouter.post('/upload', upload.single('file'), async (req: Request, res: Respo
 
   const ext = '.' + (file.originalname.split('.').pop() || '').toLowerCase();
   if (!ALLOWED.has(ext)) {
-    res.status(400).json({ code: 400, message: `Unsupported file type '${ext}'. Allowed: .txt, .md, .pdf, .docx` });
+    res.status(400).json({ code: 400, message: `Unsupported file type '${ext}'. Allowed: .txt, .md, .pdf, .docx, .csv, .json` });
     return;
   }
 
@@ -144,6 +146,18 @@ docRouter.get('/:docId/chunk-progress', async (req: Request, res: Response) => {
   const docId = req.params.docId as string;
   try {
     const result = await pythonClient.getChunkProgress(docId);
+    res.json(result);
+  } catch (e: any) {
+    res.status(e.status || 500).json({ code: e.status || 500, message: e.message });
+  }
+});
+
+// GET /api/kbs/:kbId/documents/:docId/preview
+docRouter.get('/:docId/preview', async (req: Request, res: Response) => {
+  const kbId = req.params.kbId as string;
+  const docId = req.params.docId as string;
+  try {
+    const result = await pythonClient.previewDocument(docId, kbId);
     res.json(result);
   } catch (e: any) {
     res.status(e.status || 500).json({ code: e.status || 500, message: e.message });

@@ -14,6 +14,9 @@ import { modelConfigRouter } from './routes/modelConfigs.js';
 import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
 import { apiKeyRouter } from './routes/apiKeys.js';
 import { retrievalRouter } from './routes/retrieval.js';
+import { exportRouter } from './routes/export.js';
+import { chatRouter } from './routes/chat.js';
+import { promptRouter } from './routes/prompts.js';
 import { swaggerSpec } from './swagger.js';
 
 // Wrap async route handlers to catch unhandled rejections
@@ -60,6 +63,15 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Dify-compatible retrieval endpoint (uses API Key auth)
 app.use('/api/retrieval', retrievalRouter);
+
+// Chat (SSE streaming)
+app.use('/api/chat', chatRouter);
+
+// Export (must be after /api/kbs/:kbId/documents to avoid route conflicts)
+app.use('/api/kbs/:kbId/export', exportRouter);
+
+// Prompt templates
+app.use('/api/kbs/:kbId/prompt-templates', promptRouter);
 
 app.use(errorHandler);
 

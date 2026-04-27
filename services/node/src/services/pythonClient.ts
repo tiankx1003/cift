@@ -38,7 +38,7 @@ export const pythonClient = {
     request<{ status: string }>(`/internal/kbs/${kbId}`, { method: 'DELETE' }),
 
   listDocuments: (kbId: string) =>
-    request<Array<{ doc_id: string; filename: string; file_type: string; file_size: number; status: string; chunk_count: number; chunk_size: number | null; chunk_overlap: number | null; separators: string | null }>>(
+    request<Array<{ doc_id: string; filename: string; file_type: string; file_size: number; status: string; chunk_count: number; chunk_size: number | null; chunk_overlap: number | null; separators: string | null; error_message: string | null }>>(
       `/internal/kbs/${kbId}/documents`
     ),
 
@@ -62,8 +62,8 @@ export const pythonClient = {
     });
   },
 
-  search: (kbId: string, query: string, topK = 10, similarityThreshold = 0.0, vectorWeight = 0.7, hybridThreshold = 0.0) => {
-    type SR = { results: Array<{ chunk_id: string; content: string; score: number; metadata: Record<string, unknown> }> };
+  search: (kbId: string, query: string, topK = 10, similarityThreshold = 0.0, vectorWeight = 0.7, hybridThreshold = 0.0, useRerank = false, searchMode = 'vector') => {
+    type SR = { results: Array<{ chunk_id: string; content: string; score: number; metadata: Record<string, unknown>; rerank_score: number | null; bm25_score: number | null }> };
     return request<SR>('/internal/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,6 +72,8 @@ export const pythonClient = {
         similarity_threshold: similarityThreshold,
         vector_weight: vectorWeight,
         hybrid_threshold: hybridThreshold,
+        use_rerank: useRerank,
+        search_mode: searchMode,
       }),
     });
   },
@@ -202,4 +204,78 @@ export const pythonClient = {
 
   deleteKnowledgeGraph: (kbId: string, graphId: string) =>
     request<{ status: string }>(`/internal/kbs/${kbId}/knowledge-graphs/${graphId}`, { method: 'DELETE' }),
+
+  // --- Export ---
+
+  exportKb: (kbId: string, format: string) =>
+    fetch(`${BASE}/internal/kbs/${kbId}/export?format=${format}`),
+
+  // --- Document Preview ---
+
+  previewDocument: (docId: string, kbId: string) =>
+    request<{ content: string; file_type: string; filename: string }>(
+      `/internal/documents/${docId}/preview?kb_id=${kbId}`
+    ),
+
+  // --- Chat ---
+
+  createChatSession: (kbId: string, title?: string) =>
+    request<{ id: string; kb_id: string; title: string; created_at: string | null; updated_at: string | null }>('/internal/chat/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kb_id: kbId, title: title || 'New Chat' }),
+    }),
+
+  listChatSessions: (kbId: string) =>
+    request<Array<{ id: string; kb_id: string; title: string; created_at: string | null; updated_at: string | null }>>(
+      `/internal/chat/sessions?kb_id=${kbId}`
+    ),
+
+  getChatMessages: (sessionId: string) =>
+    request<Array<{ id: string; session_id: string; role: string; content: string; sources: string | null; created_at: string | null }>>(
+      `/internal/chat/sessions/${sessionId}/messages`
+    ),
+
+  deleteChatSession: (sessionId: string) =>
+    request<{ status: string }>(`/internal/chat/sessions/${sessionId}`, { method: 'DELETE' }),
+
+  streamChatMessage: (sessionId: string, body: { query: string; top_k?: number; similarity_threshold?: number; template_id?: string }) =>
+    fetch(`${BASE}/internal/chat/sessions/${sessionId}/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  // --- Prompt Templates ---
+
+  listPromptTemplates: (kbId: string) =>
+    request<Array<{ id: string; kb_id: string | null; name: string; system_prompt: string; rag_template: string; is_default: boolean }>>(
+      `/internal/kbs/${kbId}/prompt-templates`
+    ),
+
+  createPromptTemplate: (kbId: string, data: { name: string; system_prompt?: string; rag_template?: string; is_default?: boolean }) =>
+    request<{ id: string; kb_id: string | null; name: string; system_prompt: string; rag_template: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/prompt-templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  updatePromptTemplate: (kbId: string, templateId: string, data: { name?: string; system_prompt?: string; rag_template?: string; is_default?: boolean }) =>
+    request<{ id: string; kb_id: string | null; name: string; system_prompt: string; rag_template: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/prompt-templates/${templateId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }
+    ),
+
+  deletePromptTemplate: (kbId: string, templateId: string) =>
+    request<{ status: string }>(`/internal/kbs/${kbId}/prompt-templates/${templateId}`, { method: 'DELETE' }),
+
+  setDefaultPromptTemplate: (kbId: string, templateId: string) =>
+    request<{ id: string; kb_id: string | null; name: string; system_prompt: string; rag_template: string; is_default: boolean }>(
+      `/internal/kbs/${kbId}/prompt-templates/${templateId}/default`, { method: 'PUT' }
+    ),
 };

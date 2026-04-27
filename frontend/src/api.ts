@@ -60,6 +60,8 @@ export interface KbInfo {
   name: string;
   description: string;
   doc_count: number;
+  total_chunks: number;
+  total_vectors: number;
 }
 
 export const listKbs = () => request<KbInfo[]>('/kbs');
@@ -88,6 +90,7 @@ export interface DocumentInfo {
   chunk_size: number | null;
   chunk_overlap: number | null;
   separators: string | null;
+  error_message: string | null;
 }
 
 export const listDocuments = (kbId: string) =>
@@ -126,13 +129,15 @@ export interface SearchResult {
   content: string;
   score: number;
   metadata: { doc_id: string; chunk_index: number; filename?: string; start_offset?: number; end_offset?: number };
+  rerank_score: number | null;
+  bm25_score: number | null;
 }
 
 export interface SearchResponse {
   results: SearchResult[];
 }
 
-export const search = (kbId: string, query: string, params?: { top_k?: number; similarity_threshold?: number; vector_weight?: number; hybrid_threshold?: number }) =>
+export const search = (kbId: string, query: string, params?: { top_k?: number; similarity_threshold?: number; vector_weight?: number; hybrid_threshold?: number; use_rerank?: boolean; search_mode?: string }) =>
   request<SearchResponse>(`/kbs/${kbId}/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -325,3 +330,155 @@ export const createApiKey = (name: string) =>
 
 export const deleteApiKey = (id: string) =>
   request<{ deleted: boolean }>(`/api-keys/${id}`, { method: 'DELETE' });
+
+// --- Export ---
+
+export const exportKb = async (kbId: string, format: 'json' | 'csv' = 'json') => {
+  const res = await fetch(`${BASE}/kbs/${kbId}/export?format=${format}`, {
+    headers: { ...getAuthHeaders() },
+  });
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const disposition = res.headers.get('content-disposition');
+  const match = disposition?.match(/filename="?([^";\n]+)"?/);
+  a.download = match ? match[1] : `export.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// --- Document Preview ---
+
+export interface PreviewResponse {
+  content: string;
+  file_type: string;
+  filename: string;
+}
+
+export const previewDocument = (kbId: string, docId: string) =>
+  request<PreviewResponse>(`/kbs/${kbId}/documents/${docId}/preview`);
+
+// --- Chat ---
+
+export interface ChatSessionInfo {
+  id: string;
+  kb_id: string;
+  title: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ChatMessageInfo {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  sources: string | null;
+  created_at: string | null;
+}
+
+export const createChatSession = (kbId: string, title?: string) =>
+  request<ChatSessionInfo>('/chat/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kb_id: kbId, title: title || 'New Chat' }),
+  });
+
+export const listChatSessions = (kbId: string) =>
+  request<ChatSessionInfo[]>(`/chat/sessions?kb_id=${kbId}`);
+
+export const getChatMessages = (sessionId: string) =>
+  request<ChatMessageInfo[]>(`/chat/sessions/${sessionId}/messages`);
+
+export const deleteChatSession = (sessionId: string) =>
+  request<{ status: string }>(`/chat/sessions/${sessionId}`, { method: 'DELETE' });
+
+export const streamChatMessage = async (
+  sessionId: string,
+  query: string,
+  params?: { top_k?: number; similarity_threshold?: number; template_id?: string },
+  onToken?: (token: string) => void,
+  onSources?: (sources: any[]) => void,
+  onError?: (error: string) => void,
+) => {
+  const res = await fetch(`${BASE}/chat/sessions/${sessionId}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ query, ...params }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.detail || `Chat failed: ${res.status}`);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullContent = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const event = JSON.parse(line.slice(6));
+        if (event.type === 'token' && onToken) {
+          fullContent += event.content;
+          onToken(event.content);
+        } else if (event.type === 'sources' && onSources) {
+          const citations = typeof event.citations === 'string' ? JSON.parse(event.citations) : event.citations;
+          onSources(citations);
+        } else if (event.type === 'error' && onError) {
+          onError(event.content);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+
+  return fullContent;
+};
+
+// --- Prompt Templates ---
+
+export interface PromptTemplateInfo {
+  id: string;
+  kb_id: string | null;
+  name: string;
+  system_prompt: string;
+  rag_template: string;
+  is_default: boolean;
+}
+
+export const listPromptTemplates = (kbId: string) =>
+  request<PromptTemplateInfo[]>(`/kbs/${kbId}/prompt-templates`);
+
+export const createPromptTemplate = (kbId: string, data: { name: string; system_prompt?: string; rag_template?: string; is_default?: boolean }) =>
+  request<PromptTemplateInfo>(`/kbs/${kbId}/prompt-templates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+export const updatePromptTemplate = (kbId: string, templateId: string, data: { name?: string; system_prompt?: string; rag_template?: string }) =>
+  request<PromptTemplateInfo>(`/kbs/${kbId}/prompt-templates/${templateId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+export const deletePromptTemplate = (kbId: string, templateId: string) =>
+  request<{ status: string }>(`/kbs/${kbId}/prompt-templates/${templateId}`, { method: 'DELETE' });
+
+export const setDefaultPromptTemplate = (kbId: string, templateId: string) =>
+  request<PromptTemplateInfo>(`/kbs/${kbId}/prompt-templates/${templateId}/default`, { method: 'PUT' });

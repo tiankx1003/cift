@@ -48,6 +48,8 @@ class SearchRequest(BaseModel):
     similarity_threshold: float = 0.0   # Filter results below this similarity (0-1)
     vector_weight: float = 0.7          # Vector weight for hybrid search (0-1)
     hybrid_threshold: float = 0.0       # Threshold for hybrid score (0-1)
+    use_rerank: bool = False            # Enable rerank model
+    search_mode: str = "vector"         # "vector" | "bm25" | "hybrid"
 
 
 class SearchResult(BaseModel):
@@ -55,6 +57,8 @@ class SearchResult(BaseModel):
     content: str
     score: float
     metadata: dict
+    rerank_score: float | None = None
+    bm25_score: float | None = None
 
 
 class SearchResponse(BaseModel):
@@ -101,6 +105,8 @@ class KbInfo(BaseModel):
     name: str
     description: str
     doc_count: int = 0
+    total_chunks: int = 0
+    total_vectors: int = 0
 
 
 class DocumentInfo(BaseModel):
@@ -113,6 +119,7 @@ class DocumentInfo(BaseModel):
     chunk_size: int | None = None
     chunk_overlap: int | None = None
     separators: str | None = None
+    error_message: str | None = None
 
 
 # --- Chunks ---
@@ -204,3 +211,67 @@ class ModelConfigInfo(BaseModel):
     api_key: str  # masked in response by router
     is_active: bool
     extra_params: str | None = None
+
+
+# --- Document Preview ---
+
+class DocumentPreviewResponse(BaseModel):
+    content: str
+    file_type: str
+    filename: str
+
+
+# --- Chat ---
+
+class ChatSessionCreate(BaseModel):
+    kb_id: str
+    title: str = "New Chat"
+
+
+class ChatSessionInfo(BaseModel):
+    id: str
+    kb_id: str
+    title: str
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class ChatMessageInfo(BaseModel):
+    id: str
+    session_id: str
+    role: str
+    content: str
+    sources: str | None = None
+    created_at: str | None = None
+
+
+class ChatRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    similarity_threshold: float = 0.3
+    template_id: str | None = None
+
+
+# --- Prompt Templates ---
+
+class PromptTemplateCreate(BaseModel):
+    name: str
+    system_prompt: str = ""
+    rag_template: str = ""
+    is_default: bool = False
+
+
+class PromptTemplateUpdate(BaseModel):
+    name: str | None = None
+    system_prompt: str | None = None
+    rag_template: str | None = None
+    is_default: bool | None = None
+
+
+class PromptTemplateInfo(BaseModel):
+    id: str
+    kb_id: str | None = None
+    name: str
+    system_prompt: str
+    rag_template: str
+    is_default: bool

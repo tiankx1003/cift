@@ -60,7 +60,7 @@ searchRouter.use(async (req: Request, res: Response, next: NextFunction) => {
  */
 // POST /api/kbs/:kbId/search
 searchRouter.post('/', async (req: Request, res: Response) => {
-  const { query, top_k, similarity_threshold, vector_weight, hybrid_threshold } = req.body;
+  const { query, top_k, similarity_threshold, vector_weight, hybrid_threshold, use_rerank, search_mode } = req.body;
   if (!query) {
     res.status(400).json({ code: 400, message: 'query is required' });
     return;
@@ -72,6 +72,8 @@ searchRouter.post('/', async (req: Request, res: Response) => {
     similarity_threshold,
     vector_weight,
     hybrid_threshold,
+    use_rerank,
+    search_mode,
   );
   res.json(result);
 });

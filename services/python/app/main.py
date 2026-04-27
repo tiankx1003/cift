@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import parse_router, search_router, vectors_router, upload_router, kbs_router, chunks_router, chunking_router, chunk_configs_router, model_configs_router, knowledge_graphs_router, retrieval_router
+from .routers import parse_router, search_router, vectors_router, upload_router, kbs_router, chunks_router, chunking_router, chunk_configs_router, model_configs_router, knowledge_graphs_router, retrieval_router, export_router, documents_router, chat_router, prompts_router
 from .services import ensure_bucket, get_minio_client, init_db
 from .utils import logger
 
@@ -46,6 +46,10 @@ app.include_router(chunk_configs_router)
 app.include_router(model_configs_router)
 app.include_router(knowledge_graphs_router)
 app.include_router(retrieval_router)
+app.include_router(export_router)
+app.include_router(documents_router)
+app.include_router(chat_router)
+app.include_router(prompts_router)
 
 
 @app.get("/health")

@@ -17,12 +17,14 @@ from ..utils import get_settings, logger
 router = APIRouter(prefix="/internal", tags=["upload"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
+ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".csv", ".json"}
 MIME_MAP = {
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".pdf": "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".csv": "text/csv",
+    ".json": "application/json",
 }
 
 
