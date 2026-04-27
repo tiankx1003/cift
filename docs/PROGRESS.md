@@ -240,6 +240,17 @@
   - `.env` 管理所有配置（数据库密码、embedding 端点等）
   - Ollama 不包含在编排中，通过 `OLLAMA_BASE_URL` 环境变量指向宿主机
 - [x] **Docker Compose 端到端验证通过**：`docker compose up` → 创建 KB → 上传文件 → 语义搜索
+- [x] **Node API Gateway 搭建** — Express + TypeScript，端口 3000
+  - 认证系统：JWT + bcrypt，注册/登录/获取用户信息三个接口
+  - 知识库 CRUD：GET/POST/GET/:id/PUT/:id/DELETE/:id，全部 JWT 保护 + 用户隔离
+  - 文档管理：列表、上传（multer → MinIO → Python parse）、删除、重试解析
+  - 语义搜索：代理到 Python `/internal/search`
+  - 统一错误格式：`{ code, message, details }`
+- [x] **数据库扩展** — Node 启动时自动迁移
+  - 新建 `users` 表（id, username, password_hash, created_at, updated_at）
+  - `knowledge_bases` 表新增 `user_id` 列，实现数据隔离
+  - 与 Python 服务共用同一 PostgreSQL 数据库，互不干扰
+- [x] **端到端验证通过**：注册 → 登录 → 创建 KB → 列表/更新 → 搜索 → 401/404 错误处理
 
 ### 新增文件
 - `docker-compose.yml` — 5 服务编排
@@ -248,6 +259,18 @@
 - `frontend/Dockerfile` — 多阶段构建（node build → nginx serve）
 - `frontend/nginx.conf` — Nginx 反向代理配置
 - `services/python/app/services/database.py` — SQLAlchemy ORM 模块
+- `services/node/package.json` / `tsconfig.json`
+- `services/node/src/index.ts` — Express 入口 + 自动迁移
+- `services/node/src/config.ts` — 环境变量
+- `services/node/src/db.ts` — pg 连接池 + 迁移
+- `services/node/src/middleware/auth.ts` — JWT 认证
+- `services/node/src/middleware/errorHandler.ts` — 统一错误处理
+- `services/node/src/routes/auth.ts` — 认证路由
+- `services/node/src/routes/knowledgeBases.ts` — KB 路由
+- `services/node/src/routes/documents.ts` — 文档路由
+- `services/node/src/routes/search.ts` — 搜索路由
+- `services/node/src/services/pythonClient.ts` — Python 服务客户端
+- `services/node/src/services/minioClient.ts` — MinIO 客户端
 
 ### 当前状态
 - `docker compose up --build` 一键启动全部服务
@@ -308,35 +331,6 @@
 - 分段质量评估（TASK 013.3 可选）
 - HTTPS + 密钥管理
 - 多租户/权限管理
-
-## Node API Gateway (`services/node/`)
-
-### 2026-04-14 完成
-- [x] **Node API Gateway 搭建** — Express + TypeScript，端口 3000
-  - 认证系统：JWT + bcrypt，注册/登录/获取用户信息三个接口
-  - 知识库 CRUD：GET/POST/GET/:id/PUT/:id/DELETE/:id，全部 JWT 保护 + 用户隔离
-  - 文档管理：列表、上传（multer → MinIO → Python parse）、删除、重试解析
-  - 语义搜索：代理到 Python `/internal/search`
-  - 统一错误格式：`{ code, message, details }`
-- [x] **数据库扩展** — 启动时自动迁移
-  - 新建 `users` 表（id, username, password_hash, created_at, updated_at）
-  - `knowledge_bases` 表新增 `user_id` 列，实现数据隔离
-  - 与 Python 服务共用同一 PostgreSQL 数据库，互不干扰
-- [x] **端到端验证通过**：注册 → 登录 → 创建 KB → 列表/更新 → 搜索 → 401/404 错误处理
-
-### 新增文件
-- `services/node/package.json` / `tsconfig.json`
-- `services/node/src/index.ts` — Express 入口 + 自动迁移
-- `services/node/src/config.ts` — 环境变量
-- `services/node/src/db.ts` — pg 连接池 + 迁移
-- `services/node/src/middleware/auth.ts` — JWT 认证
-- `services/node/src/middleware/errorHandler.ts` — 统一错误处理
-- `services/node/src/routes/auth.ts` — 认证路由
-- `services/node/src/routes/knowledgeBases.ts` — KB 路由
-- `services/node/src/routes/documents.ts` — 文档路由
-- `services/node/src/routes/search.ts` — 搜索路由
-- `services/node/src/services/pythonClient.ts` — Python 服务客户端
-- `services/node/src/services/minioClient.ts` — MinIO 客户端
 
 ## 2026-04-13
 
