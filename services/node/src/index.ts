@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { RequestHandler, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config.js';
@@ -15,6 +15,30 @@ import { knowledgeGraphRouter } from './routes/knowledgeGraphs.js';
 import { apiKeyRouter } from './routes/apiKeys.js';
 import { retrievalRouter } from './routes/retrieval.js';
 import { swaggerSpec } from './swagger.js';
+
+// Wrap async route handlers to catch unhandled rejections
+function asyncHandler(fn: RequestHandler): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+}
+
+// Patch express Router to auto-wrap async handlers
+const originalRouter = express.Router;
+express.Router = function (options?) {
+  const router = originalRouter(options);
+  const methods = ['get', 'post', 'put', 'delete', 'patch'] as const;
+  for (const method of methods) {
+    const original = router[method].bind(router);
+    (router as any)[method] = (path: any, ...handlers: any[]) => {
+      const wrapped = handlers.map((h: any) =>
+        typeof h === 'function' && h.length <= 3 ? asyncHandler(h) : h
+      );
+      return original(path, ...wrapped);
+    };
+  }
+  return router;
+};
 
 const app = express();
 

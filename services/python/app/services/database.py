@@ -133,6 +133,22 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+        # Migrations: add new columns to existing tables
+        from sqlalchemy import text
+
+        # chunk_configs: add strategy and heading_level columns
+        result = await conn.execute(text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'chunk_configs' AND column_name = 'strategy'"
+        ))
+        if result.fetchone() is None:
+            await conn.execute(text(
+                "ALTER TABLE chunk_configs ADD COLUMN strategy VARCHAR(16) DEFAULT 'fixed'"
+            ))
+            await conn.execute(text(
+                "ALTER TABLE chunk_configs ADD COLUMN heading_level INTEGER DEFAULT 0"
+            ))
+
 
 async def get_db() -> AsyncSession:
     _, factory = _get_engine()
