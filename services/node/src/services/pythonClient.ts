@@ -32,7 +32,7 @@ export const pythonClient = {
     }),
 
   getKb: (kbId: string) =>
-    request<{ kb_id: string; name: string; description: string; doc_count: number }>(`/internal/kbs/${kbId}`),
+    request<{ kb_id: string; name: string; description: string; doc_count: number; total_chunks: number; total_vectors: number }>(`/internal/kbs/${kbId}`),
 
   deleteKb: (kbId: string) =>
     request<{ status: string }>(`/internal/kbs/${kbId}`, { method: 'DELETE' }),

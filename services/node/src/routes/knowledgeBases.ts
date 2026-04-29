@@ -73,14 +73,15 @@ kbRouter.post('/', async (req: Request, res: Response) => {
 // GET /api/kbs/:kbId
 kbRouter.get('/:kbId', async (req: Request, res: Response) => {
   const result = await pool.query(
-    'SELECT id as kb_id, name, description, doc_count, created_at FROM knowledge_bases WHERE id = $1 AND user_id = $2',
+    'SELECT id FROM knowledge_bases WHERE id = $1 AND user_id = $2',
     [req.params.kbId, req.user!.userId]
   );
   if (result.rows.length === 0) {
     res.status(404).json({ code: 404, message: 'Knowledge base not found' });
     return;
   }
-  res.json(result.rows[0]);
+  const kb = await pythonClient.getKb(req.params.kbId as string);
+  res.json(kb);
 });
 
 // PUT /api/kbs/:kbId
@@ -151,8 +152,8 @@ kbRouter.put('/:kbId', async (req: Request, res: Response) => {
  *     responses:
  *       200: { description: 删除成功 }
  */
-// GET /api/kbs/:kbId
-kbRouter.get('/:kbId', async (req: Request, res: Response) => {
+// DELETE /api/kbs/:kbId
+kbRouter.delete('/:kbId', async (req: Request, res: Response) => {
   const existing = await pool.query(
     'SELECT id FROM knowledge_bases WHERE id = $1 AND user_id = $2',
     [req.params.kbId, req.user!.userId]
