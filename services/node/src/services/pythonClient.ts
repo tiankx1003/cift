@@ -278,4 +278,44 @@ export const pythonClient = {
     request<{ id: string; kb_id: string | null; name: string; system_prompt: string; rag_template: string; is_default: boolean }>(
       `/internal/kbs/${kbId}/prompt-templates/${templateId}/default`, { method: 'PUT' }
     ),
+
+  // --- QA (智能问答) ---
+
+  createQaSession: (userId: string, title?: string) =>
+    request<{ id: string; user_id: string; title: string; created_at: string | null; updated_at: string | null }>(
+      `/internal/qa/sessions?user_id=${userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title || '新对话' }),
+      }
+    ),
+
+  listQaSessions: (userId: string) =>
+    request<Array<{ id: string; user_id: string; title: string; created_at: string | null; updated_at: string | null }>>(
+      `/internal/qa/sessions?user_id=${userId}`
+    ),
+
+  renameQaSession: (sessionId: string, title: string) =>
+    request<{ id: string; user_id: string; title: string; created_at: string | null; updated_at: string | null }>(
+      `/internal/qa/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      }
+    ),
+
+  getQaMessages: (sessionId: string) =>
+    request<Array<{ id: string; session_id: string; role: string; content: string; kb_ids: string | null; sources: string | null; created_at: string | null }>>(
+      `/internal/qa/sessions/${sessionId}/messages`
+    ),
+
+  deleteQaSession: (sessionId: string) =>
+    request<{ status: string }>(`/internal/qa/sessions/${sessionId}`, { method: 'DELETE' }),
+
+  streamQaMessage: (sessionId: string, body: { query: string; kb_ids?: string[]; top_k?: number; similarity_threshold?: number; template_id?: string }, userId: string) =>
+    fetch(`${BASE}/internal/qa/sessions/${sessionId}/stream?user_id=${userId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
 };

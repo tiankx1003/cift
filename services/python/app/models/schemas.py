@@ -275,3 +275,39 @@ class PromptTemplateInfo(BaseModel):
     system_prompt: str
     rag_template: str
     is_default: bool
+
+
+# --- QA (智能问答) ---
+
+class QaSessionCreate(BaseModel):
+    title: str = "新对话"
+
+
+class QaSessionRename(BaseModel):
+    title: str
+
+
+class QaSessionInfo(BaseModel):
+    id: str
+    user_id: str
+    title: str
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class QaMessageInfo(BaseModel):
+    id: str
+    session_id: str
+    role: str
+    content: str
+    kb_ids: str | None = None
+    sources: str | None = None
+    created_at: str | None = None
+
+
+class QaRequest(BaseModel):
+    query: str
+    kb_ids: list[str] = []       # empty = pure LLM mode
+    top_k: int = 5
+    similarity_threshold: float = 0.3
+    template_id: str | None = None

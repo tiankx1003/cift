@@ -13,5 +13,6 @@ from .export import router as export_router
 from .documents import router as documents_router
 from .chat import router as chat_router
 from .prompts import router as prompts_router
+from .qa import router as qa_router
 
-__all__ = ["parse_router", "search_router", "vectors_router", "upload_router", "kbs_router", "chunks_router", "chunking_router", "chunk_configs_router", "model_configs_router", "knowledge_graphs_router", "retrieval_router", "export_router", "documents_router", "chat_router", "prompts_router"]
+__all__ = ["parse_router", "search_router", "vectors_router", "upload_router", "kbs_router", "chunks_router", "chunking_router", "chunk_configs_router", "model_configs_router", "knowledge_graphs_router", "retrieval_router", "export_router", "documents_router", "chat_router", "prompts_router", "qa_router"]

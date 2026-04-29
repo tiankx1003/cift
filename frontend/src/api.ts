@@ -482,3 +482,98 @@ export const deletePromptTemplate = (kbId: string, templateId: string) =>
 
 export const setDefaultPromptTemplate = (kbId: string, templateId: string) =>
   request<PromptTemplateInfo>(`/kbs/${kbId}/prompt-templates/${templateId}/default`, { method: 'PUT' });
+
+// --- QA (智能问答) ---
+
+export interface QaSessionInfo {
+  id: string;
+  user_id: string;
+  title: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface QaMessageInfo {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  kb_ids: string | null;
+  sources: string | null;
+  created_at: string | null;
+}
+
+export const createQaSession = (title?: string) =>
+  request<QaSessionInfo>('/qa/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: title || '新对话' }),
+  });
+
+export const listQaSessions = () =>
+  request<QaSessionInfo[]>('/qa/sessions');
+
+export const renameQaSession = (sessionId: string, title: string) =>
+  request<QaSessionInfo>(`/qa/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  });
+
+export const getQaMessages = (sessionId: string) =>
+  request<QaMessageInfo[]>(`/qa/sessions/${sessionId}/messages`);
+
+export const deleteQaSession = (sessionId: string) =>
+  request<{ status: string }>(`/qa/sessions/${sessionId}`, { method: 'DELETE' });
+
+export const streamQaMessage = async (
+  sessionId: string,
+  query: string,
+  params?: { kb_ids?: string[]; top_k?: number; similarity_threshold?: number; template_id?: string },
+  onToken?: (token: string) => void,
+  onSources?: (sources: any[]) => void,
+  onError?: (error: string) => void,
+) => {
+  const res = await fetch(`${BASE}/qa/sessions/${sessionId}/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ query, ...params }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || body.detail || `QA failed: ${res.status}`);
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullContent = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const event = JSON.parse(line.slice(6));
+        if (event.type === 'token' && onToken) {
+          fullContent += event.content;
+          onToken(event.content);
+        } else if (event.type === 'sources' && onSources) {
+          const citations = typeof event.citations === 'string' ? JSON.parse(event.citations) : event.citations;
+          onSources(citations);
+        } else if (event.type === 'error' && onError) {
+          onError(event.content);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+
+  return fullContent;
+};

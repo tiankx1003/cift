@@ -7,6 +7,7 @@ import {
   SettingOutlined,
   LogoutOutlined,
   ApartmentOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { Dropdown, theme, Spin } from 'antd';
 import type { MenuProps } from 'antd';
@@ -24,6 +25,11 @@ const menuRoutes = {
       path: '/graph',
       name: '知识图谱',
       icon: <ApartmentOutlined />,
+    },
+    {
+      path: '/qa',
+      name: '智能问答',
+      icon: <MessageOutlined />,
     },
     {
       path: '/manage',

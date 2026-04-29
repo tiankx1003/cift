@@ -153,6 +153,32 @@ class PromptTemplate(Base):
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class QaSession(Base):
+    __tablename__ = "qa_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), index=True)
+    title: Mapped[str] = mapped_column(String(256), default="新对话")
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages: Mapped[list["QaMessage"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
+
+class QaMessage(Base):
+    __tablename__ = "qa_messages"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("qa_sessions.id", ondelete="CASCADE"))
+    role: Mapped[str] = mapped_column(String(16))  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text)
+    kb_ids: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON array
+    sources: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+    session: Mapped["QaSession"] = relationship(back_populates="messages")
+
+
 _engine = None
 _session_factory = None
 
