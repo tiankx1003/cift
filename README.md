@@ -25,6 +25,18 @@
 - 引用来源标注（chunk + 来源文档）
 - Prompt 模板管理（按知识库隔离，支持变量 `{context}`、`{question}`）
 
+### 智能问答
+- 独立对话模块，不绑定知识库
+- 多知识库检索：同时选择多个 KB，合并排序取 top_k
+- 纯 LLM 模式：不选知识库时直接回答
+- 会话管理（新建/重命名/删除）
+
+### 召回测试
+- 独立检索调试页面（`/kb/:kbId/recall`）
+- 左侧固定参数面板 + 右侧分页结果
+- 参数支持拖动和手动输入（top-k、相似度阈值、向量权重）
+- 混合检索分别展示混合/语义/关键词三项分数
+
 ### 系统管理
 - 用户注册 / 登录（JWT 认证）
 - 知识库管理（创建、查看、删除）+ 统计面板
@@ -150,8 +162,10 @@ cift/
 │       └── pages/
 │           ├── Login.tsx
 │           ├── Home.tsx                 # 知识库列表
-│           ├── KbDetail.tsx             # KB 详情（上传/文档/搜索/分段）
+│           ├── KbDetail.tsx             # KB 详情（上传/文档/分段）
 │           ├── Chat.tsx                 # RAG 对话
+│           ├── RecallTest.tsx           # 召回测试（独立检索调试）
+│           ├── QA.tsx                   # 智能问答（多 KB 检索 + 纯 LLM）
 │           ├── ChunkPreview.tsx         # 分块对照预览
 │           ├── Manage.tsx               # 模型 + API Key 管理
 │           └── KnowledgeGraphPage.tsx   # 知识图谱
@@ -161,7 +175,7 @@ cift/
 │       ├── config.ts / db.ts            # 配置 + 数据库迁移
 │       ├── routes/                      # auth, kbs, documents, search,
 │       │                                # chunkConfigs, modelConfigs, chat,
-│       │                                # prompts, export, knowledgeGraphs,
+│       │                                # qa, prompts, export, knowledgeGraphs,
 │       │                                # apiKeys, retrieval
 │       ├── middleware/                   # JWT + API Key + 错误处理
 │       └── services/                    # pythonClient, minioClient
@@ -171,7 +185,7 @@ cift/
         ├── main.py                      # FastAPI 入口 + lifespan
         ├── models/schemas.py            # Pydantic 模型
         ├── routers/                     # kbs, upload, chunking, search,
-        │                                # chat, prompts, export, documents,
+        │                                # chat, qa, prompts, export, documents,
         │                                # chunks, model_configs, ...
         ├── services/
         │   ├── database.py              # SQLAlchemy ORM (10 张表)
@@ -225,6 +239,17 @@ cift/
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/kbs/{kbId}/search` | 搜索（支持 vector/bm25/hybrid 模式 + rerank） |
+
+### 智能问答
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/qa/sessions` | 创建问答会话 |
+| GET | `/api/qa/sessions` | 列出会话 |
+| PATCH | `/api/qa/sessions/{id}` | 重命名会话 |
+| GET | `/api/qa/sessions/{id}/messages` | 消息历史 |
+| DELETE | `/api/qa/sessions/{id}` | 删除会话 |
+| POST | `/api/qa/sessions/{id}/stream` | SSE 流式问答 |
 
 ### 对话
 

@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] - 2026-05-01
+
+### Added
+
+- **智能问答模块** — 独立对话，支持多知识库检索和纯 LLM 对话
+  - 新增 `qa_sessions` / `qa_messages` 数据库表（Session 不绑定 kb_id）
+  - 多 KB 检索：遍历选中 KB 的 ChromaDB collection，合并排序取 top_k
+  - 不选知识库时跳过检索，纯 LLM 直接回答
+  - SSE 流式输出（复用 Chat 协议）
+  - 前端 QA 页面：KB 多选、会话管理（新建/重命名/删除）、流式消息
+  - 侧边栏新增「智能问答」菜单项
+- **召回测试独立页面** — 从 KB 详情页剥离语义搜索，独立调试检索效果
+  - 路由 `/kb/:kbId/recall`，左右布局
+  - 左侧固定参数面板：检索模式、重排序开关、top-k、相似度阈值、向量权重（可拖动 + 可输入）
+  - 右侧分页结果（默认 30 条/页），关键词高亮
+  - 混合检索分别展示混合/语义/关键词三项分数
+
+### Changed
+
+- 混合检索 BM25 分数改为归一化（0-1）返回，前端正确显示百分比
+- 分块默认值从 800/200 调整为 512/64（匹配 bge-small-zh-v1.5 的 512 token 限制）
+- KB 详情页上传按钮移至 header，与「对话」「导出」并列
+- 侧边栏收起按钮移至左下角，宽度缩窄至 160px
+- 对话页面返回按钮移至「对话列表」标题处
+
+### Fixed
+
+- KB 详情页向量数显示为 0（改用 Python 服务查询 ChromaDB）
+- 文档处理中状态 Spin 图标与文字重叠（改用 Tag 显示）
+- 混合检索 ChromaDB `search_params` 参数不兼容导致 500 错误
+
 ## [0.5.0] - 2026-04-27
 
 ### Added
@@ -137,6 +168,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - 知识库列表页、详情页（文件上传、文档列表、语义搜索）
 - Ollama embedding 模型集成（qllama/bge-small-zh-v1.5）
 
+[0.6.0]: https://github.com/user/cift/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/user/cift/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/user/cift/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/user/cift/compare/v0.2.0...v0.3.0
