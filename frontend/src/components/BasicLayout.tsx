@@ -8,6 +8,8 @@ import {
   LogoutOutlined,
   ApartmentOutlined,
   MessageOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { Dropdown, theme, Spin } from 'antd';
 import type { MenuProps } from 'antd';
@@ -112,6 +114,8 @@ export default function BasicLayout() {
       fixSiderbar
       collapsed={collapsed}
       onCollapse={setCollapsed}
+      collapsedButtonRender={false}
+      siderWidth={160}
       route={menuRoutes}
       location={{ pathname: location.pathname }}
       token={{
@@ -175,6 +179,27 @@ export default function BasicLayout() {
       ]}
       contentStyle={{ padding: 0 }}
     >
+      {/* Custom collapse toggle in bottom-left */}
+      <div
+        onClick={() => setCollapsed(!collapsed)}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: collapsed ? 12 : 68,
+          zIndex: 100,
+          width: 24,
+          height: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: 'rgba(255,255,255,0.65)',
+          transition: 'left 0.2s',
+          padding: 12,
+        }}
+      >
+        {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+      </div>
       <div
         style={{
           padding: 24,

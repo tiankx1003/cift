@@ -150,8 +150,8 @@ async def chunk_document(doc_id: str, req: ChunkRequest, db: AsyncSession = Depe
         raise HTTPException(status_code=400, detail="Document has no extracted text")
 
     # Resolve chunk parameters
-    chunk_size = 800
-    chunk_overlap = 200
+    chunk_size = 512
+    chunk_overlap = 64
     separators = ""
     strategy = "fixed"
     heading_level = 0

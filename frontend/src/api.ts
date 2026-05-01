@@ -131,6 +131,7 @@ export interface SearchResult {
   metadata: { doc_id: string; chunk_index: number; filename?: string; start_offset?: number; end_offset?: number };
   rerank_score: number | null;
   bm25_score: number | null;
+  vector_score: number | null;
 }
 
 export interface SearchResponse {

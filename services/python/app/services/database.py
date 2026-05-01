@@ -61,8 +61,8 @@ class ChunkConfig(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     kb_id: Mapped[str] = mapped_column(ForeignKey("knowledge_bases.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(128))
-    chunk_size: Mapped[int] = mapped_column(Integer, default=800)
-    chunk_overlap: Mapped[int] = mapped_column(Integer, default=200)
+    chunk_size: Mapped[int] = mapped_column(Integer, default=512)
+    chunk_overlap: Mapped[int] = mapped_column(Integer, default=64)
     separators: Mapped[str] = mapped_column(Text, default="")
     strategy: Mapped[str] = mapped_column(String(16), default="fixed")  # "fixed" | "structural"
     heading_level: Mapped[int] = mapped_column(Integer, default=0)      # 0=auto, 1-6

@@ -10,6 +10,7 @@ import ChunkPreview from './pages/ChunkPreview';
 import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import Chat from './pages/Chat';
 import QA from './pages/QA';
+import RecallTest from './pages/RecallTest';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/" element={<Home />} />
               <Route path="/kb/:kbId" element={<KbDetail />} />
               <Route path="/kb/:kbId/chat" element={<Chat />} />
+              <Route path="/kb/:kbId/recall" element={<RecallTest />} />
               <Route path="/qa" element={<QA />} />
               <Route path="/manage" element={<Manage />} />
               <Route path="/kb/:kbId/documents/:docId/preview" element={<ChunkPreview />} />

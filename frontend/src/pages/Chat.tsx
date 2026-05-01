@@ -164,7 +164,12 @@ export default function Chat() {
       <Card
         size="small"
         style={{ width: 260, flexShrink: 0, borderRadius: 8, overflow: 'auto' }}
-        title="对话列表"
+        title={
+          <Space>
+            <Button icon={<ArrowLeftOutlined />} size="small" onClick={() => navigate(-1)} style={{ borderRadius: 6 }} />
+            对话列表
+          </Space>
+        }
         extra={
           <Button size="small" icon={<PlusOutlined />} onClick={handleNewSession}>
             新建
@@ -215,12 +220,7 @@ export default function Chat() {
         size="small"
         style={{ flex: 1, borderRadius: 8, display: 'flex', flexDirection: 'column' }}
         bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 0 }}
-        title={
-          <Space>
-            <Button icon={<ArrowLeftOutlined />} size="small" onClick={() => navigate(-1)} />
-            <span>{activeSession?.title || '请选择或创建对话'}</span>
-          </Space>
-        }
+        title={activeSession?.title || '请选择或创建对话'}
       >
         {!activeSession ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

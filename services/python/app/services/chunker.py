@@ -69,7 +69,7 @@ def _find_split_point(text: str, target_pos: int, separators: list[str], max_len
 class TextChunker:
     """Split text into overlapping chunks with separator alignment."""
 
-    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200, separators: list[str] | None = None):
+    def __init__(self, chunk_size: int = 512, chunk_overlap: int = 64, separators: list[str] | None = None):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators
@@ -150,7 +150,7 @@ class TextChunker:
 class MarkdownChunker:
     """Split markdown by heading sections, then aligned-size for long sections."""
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 512, chunk_overlap: int = 64):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self._heading_re = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
@@ -203,7 +203,7 @@ _TXT_HEADING_RE = re.compile("|".join(_TXT_HEADING_PATTERNS), re.MULTILINE)
 class StructuralChunker:
     """Split text by heading/section structure, preserving semantic completeness."""
 
-    def __init__(self, chunk_size: int = 800, chunk_overlap: int = 200, heading_level: int = 0):
+    def __init__(self, chunk_size: int = 512, chunk_overlap: int = 64, heading_level: int = 0):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.heading_level = heading_level  # 1-6 for markdown, 0=auto
@@ -290,8 +290,8 @@ def _find_offset(text: str, chunk: str, start_from: int = 0) -> int:
 def make_chunks(
     text: str,
     file_type: str,
-    chunk_size: int = 800,
-    chunk_overlap: int = 200,
+    chunk_size: int = 512,
+    chunk_overlap: int = 64,
     separators: str = "",
     strategy: str = "fixed",
     heading_level: int = 0,

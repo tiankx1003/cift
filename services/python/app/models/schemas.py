@@ -59,6 +59,7 @@ class SearchResult(BaseModel):
     metadata: dict
     rerank_score: float | None = None
     bm25_score: float | None = None
+    vector_score: float | None = None
 
 
 class SearchResponse(BaseModel):
@@ -141,8 +142,8 @@ class ChunksResponse(BaseModel):
 
 class ChunkConfigCreate(BaseModel):
     name: str
-    chunk_size: int = 800
-    chunk_overlap: int = 200
+    chunk_size: int = 512
+    chunk_overlap: int = 64
     separators: str = ""
     strategy: str = "fixed"       # "fixed" | "structural"
     heading_level: int = 0        # 0=auto, 1-6

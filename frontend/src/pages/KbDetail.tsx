@@ -10,7 +10,6 @@ import {
   message,
   Popconfirm,
   Card,
-  List,
   Tag,
   Space,
   Spin,
@@ -44,35 +43,7 @@ import {
 } from '@ant-design/icons';
 import * as api from '../api';
 
-const { Title, Text, Paragraph } = Typography;
-
-function highlightText(text: string, query: string): React.ReactNode {
-  const trimmed = query.trim();
-  if (!trimmed) return text;
-  const lowerQuery = trimmed.toLowerCase();
-  const lowerText = text.toLowerCase();
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let searchFrom = 0;
-  while (searchFrom < lowerText.length) {
-    const idx = lowerText.indexOf(lowerQuery, searchFrom);
-    if (idx === -1) break;
-    if (idx > lastIndex) {
-      parts.push(text.slice(lastIndex, idx));
-    }
-    parts.push(
-      <mark key={idx} style={{ background: '#fff3b0', padding: '0 2px', borderRadius: 2 }}>
-        {text.slice(idx, idx + trimmed.length)}
-      </mark>
-    );
-    lastIndex = idx + trimmed.length;
-    searchFrom = lastIndex;
-  }
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-  return parts.length > 0 ? <>{parts}</> : text;
-}
+const { Title, Text } = Typography;
 
 export default function KbDetail() {
   const { kbId } = useParams<{ kbId: string }>();
@@ -82,21 +53,6 @@ export default function KbDetail() {
   const [docs, setDocs] = useState<api.DocumentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
-
-  const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<api.SearchResult[]>([]);
-  const [searchDone, setSearchDone] = useState(false);
-
-  // Search parameters
-  const [searchParamsExpanded, setSearchParamsExpanded] = useState(false);
-  const [searchTopK, setSearchTopK] = useState(10);
-  const [searchSimilarityThreshold, setSearchSimilarityThreshold] = useState(0.3);
-  const [searchVectorWeight, setSearchVectorWeight] = useState(0.7);
-  const [searchHybridThreshold, setSearchHybridThreshold] = useState(0.0);
-  const [searchMode, setSearchMode] = useState<string>('vector');
-  const [useRerank, setUseRerank] = useState(false);
 
   const [chunkModalOpen, setChunkModalOpen] = useState(false);
   const [chunkingDocId, setChunkingDocId] = useState<string>('');
@@ -228,7 +184,6 @@ export default function KbDetail() {
     let successCount = 0;
     let failCount = 0;
     for (let i = 0; i < validFiles.length; i++) {
-      setUploadProgress({ current: i + 1, total: validFiles.length });
       try {
         const res = await api.uploadFile(kbId, validFiles[i]);
         if (res.status === 'completed') successCount++;
@@ -243,7 +198,6 @@ export default function KbDetail() {
       message.error('所有文件上传失败');
     }
     setUploading(false);
-    setUploadProgress(null);
     fetchData();
   };
 
@@ -283,8 +237,8 @@ export default function KbDetail() {
     if (values.config_id) {
       body.config_id = values.config_id;
     } else {
-      body.chunk_size = values.chunk_size || 800;
-      body.chunk_overlap = values.chunk_overlap || 200;
+      body.chunk_size = values.chunk_size || 512;
+      body.chunk_overlap = values.chunk_overlap || 64;
       body.separators = values.separators || '';
       if (values.strategy) body.strategy = values.strategy;
       if (values.strategy === 'structural' && values.heading_level !== undefined) {
@@ -302,27 +256,6 @@ export default function KbDetail() {
     setSelectedRowKeys([]);
     // Mark all as processing to trigger polling
     setDocs(prev => prev.map(d => selectedRowKeys.includes(d.doc_id) ? { ...d, status: 'processing' } : d));
-  };
-
-  const handleSearch = async () => {
-    if (!kbId || !query.trim()) return;
-    try {
-      setSearching(true);
-      setSearchDone(true);
-      const res = await api.search(kbId, query, {
-        top_k: searchTopK,
-        similarity_threshold: searchSimilarityThreshold,
-        vector_weight: searchVectorWeight,
-        hybrid_threshold: searchHybridThreshold,
-        use_rerank: useRerank,
-        search_mode: searchMode,
-      });
-      setResults(res.results);
-    } catch (e: any) {
-      message.error(e.message);
-    } finally {
-      setSearching(false);
-    }
   };
 
   const fetchChunkConfigs = useCallback(async () => {
@@ -349,8 +282,8 @@ export default function KbDetail() {
       if (values.config_id) {
         body.config_id = values.config_id;
       } else {
-        body.chunk_size = values.chunk_size || 800;
-        body.chunk_overlap = values.chunk_overlap || 200;
+        body.chunk_size = values.chunk_size || 512;
+        body.chunk_overlap = values.chunk_overlap || 64;
         body.separators = values.separators || '';
         if (values.strategy) body.strategy = values.strategy;
         if (values.strategy === 'structural' && values.heading_level !== undefined) {
@@ -452,12 +385,6 @@ export default function KbDetail() {
     return <FileTextOutlined style={{ color: '#1677ff' }} />;
   };
 
-  const scoreColor = (score: number) => {
-    if (score > 0.8) return '#52c41a';
-    if (score > 0.6) return '#1677ff';
-    if (score > 0.4) return '#faad14';
-    return '#ff4d4f';
-  };
 
   return (
     <div>
@@ -486,12 +413,41 @@ export default function KbDetail() {
           对话
         </Button>
         <Button
+          icon={<SearchOutlined />}
+          onClick={() => navigate(`/kb/${kbId}/recall`)}
+          size="small"
+        >
+          召回测试
+        </Button>
+        <Button
           icon={<ExportOutlined />}
           onClick={() => api.exportKb(kbId!, 'json')}
           size="small"
         >
           导出
         </Button>
+        <Upload
+          accept=".txt,.md,.pdf,.docx,.csv,.json"
+          showUploadList={false}
+          multiple
+          beforeUpload={(file, fileList) => {
+            if (fileList.indexOf(file) === 0) {
+              handleBatchUpload(fileList);
+            }
+            return false;
+          }}
+          disabled={uploading}
+        >
+          <Tooltip title="支持 .txt、.md、.pdf、.docx、.csv、.json，最大 10MB">
+            <Button
+              icon={<UploadOutlined />}
+              loading={uploading}
+              size="small"
+            >
+              上传
+            </Button>
+          </Tooltip>
+        </Upload>
       </div>
 
       {/* Stats Row */}
@@ -541,40 +497,7 @@ export default function KbDetail() {
         </Col>
       </Row>
 
-      {/* Upload + Documents */}
-      <Card
-        title={
-          <span>
-            <UploadOutlined style={{ marginRight: 8 }} />
-            文件上传
-          </span>
-        }
-        size="small"
-        style={{ marginBottom: 24, borderRadius: 8 }}
-      >
-        <Upload
-          accept=".txt,.md,.pdf,.docx,.csv,.json"
-          showUploadList={false}
-          multiple
-          beforeUpload={(file, fileList) => {
-            if (fileList.indexOf(file) === 0) {
-              handleBatchUpload(fileList);
-            }
-            return false;
-          }}
-          disabled={uploading}
-        >
-          <Button icon={<UploadOutlined />} loading={uploading} type="primary">
-            {uploading
-              ? `处理中 (${uploadProgress?.current}/${uploadProgress?.total})...`
-              : '选择文件 (.txt / .md / .pdf / .docx / .csv / .json)'}
-          </Button>
-        </Upload>
-        <Text type="secondary" style={{ marginLeft: 12 }}>
-          支持 .txt、.md、.pdf、.docx、.csv、.json，最大 10MB
-        </Text>
-      </Card>
-
+      {/* Documents */}
       <Card
         title={
           <span>
@@ -663,7 +586,7 @@ export default function KbDetail() {
                 align: 'center',
                 render: (s: string, record: api.DocumentInfo) => {
                   if (s === 'processing') {
-                    return <span style={{ color: '#fa8c16' }}><Spin size="small" /> 处理中</span>;
+                    return <Tag color="orange">处理中</Tag>;
                   }
                   if (s === 'completed') {
                     return <Tag color="green">完成</Tag>;
@@ -757,188 +680,6 @@ export default function KbDetail() {
             ]}
           />
         )}
-      </Card>
-
-      {/* Search */}
-      <Card
-        title={
-          <span>
-            <SearchOutlined style={{ marginRight: 8 }} />
-            语义搜索
-          </span>
-        }
-        size="small"
-        style={{ marginBottom: 24, borderRadius: 8 }}
-      >
-        <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
-          <Input
-            placeholder="输入查询内容..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onPressEnter={handleSearch}
-            size="large"
-          />
-          <Button
-            type="primary"
-            icon={<SearchOutlined />}
-            onClick={handleSearch}
-            loading={searching}
-            size="large"
-          >
-            搜索
-          </Button>
-        </Space.Compact>
-
-        {/* Collapsible search parameters */}
-        <div style={{ marginBottom: 16 }}>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => setSearchParamsExpanded(!searchParamsExpanded)}
-            style={{ padding: 0, color: '#999' }}
-          >
-            {searchParamsExpanded ? '收起参数' : '搜索参数'}
-          </Button>
-          {searchParamsExpanded && (
-            <Card size="small" style={{ marginTop: 8, background: '#fafafa' }}>
-              <div style={{ marginBottom: 12 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>检索模式</Text>
-                <Space>
-                  {[
-                    { value: 'vector', label: '语义搜索' },
-                    { value: 'bm25', label: '关键词搜索' },
-                    { value: 'hybrid', label: '混合搜索' },
-                  ].map(m => (
-                    <Button
-                      key={m.value}
-                      size="small"
-                      type={searchMode === m.value ? 'primary' : 'default'}
-                      onClick={() => setSearchMode(m.value)}
-                    >
-                      {m.label}
-                    </Button>
-                  ))}
-                </Space>
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <Space>
-                  <Text type="secondary" style={{ fontSize: 12 }}>启用重排序</Text>
-                  <input
-                    type="checkbox"
-                    checked={useRerank}
-                    onChange={(e) => setUseRerank(e.target.checked)}
-                  />
-                </Space>
-              </div>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>返回数量 (top-k): {searchTopK}</Text>
-                    <input
-                      type="range"
-                      min={1}
-                      max={50}
-                      value={searchTopK}
-                      onChange={(e) => setSearchTopK(Number(e.target.value))}
-                      style={{ width: '100%', marginTop: 4 }}
-                    />
-                  </div>
-                </Col>
-                <Col span={12}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>最低相似度: {searchSimilarityThreshold.toFixed(2)}</Text>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={Math.round(searchSimilarityThreshold * 100)}
-                      onChange={(e) => setSearchSimilarityThreshold(Number(e.target.value) / 100)}
-                      style={{ width: '100%', marginTop: 4 }}
-                    />
-                  </div>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>向量权重: {searchVectorWeight.toFixed(2)}</Text>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={Math.round(searchVectorWeight * 100)}
-                      onChange={(e) => setSearchVectorWeight(Number(e.target.value) / 100)}
-                      style={{ width: '100%', marginTop: 4 }}
-                    />
-                  </div>
-                </Col>
-                <Col span={12}>
-                  <div style={{ marginBottom: 8 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>混合阈值: {searchHybridThreshold.toFixed(2)}</Text>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={Math.round(searchHybridThreshold * 100)}
-                      onChange={(e) => setSearchHybridThreshold(Number(e.target.value) / 100)}
-                      style={{ width: '100%', marginTop: 4 }}
-                    />
-                  </div>
-                </Col>
-              </Row>
-            </Card>
-          )}
-        </div>
-
-        {searchDone && results.length === 0 && !searching && (
-          <Empty description="未找到相关结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-        )}
-
-        <List
-          dataSource={results}
-          renderItem={(item) => (
-            <List.Item style={{ padding: '12px 0' }}>
-              <div style={{ width: '100%' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Space size={8}>
-                    {item.metadata.filename ? (
-                      <Link to={`/kb/${kbId}/documents/${item.metadata.doc_id}/preview`}>
-                        <Text strong style={{ fontSize: 13 }}>{item.metadata.filename}</Text>
-                      </Link>
-                    ) : (
-                      <Text type="secondary" style={{ fontSize: 12 }}>文档: {item.metadata.doc_id}</Text>
-                    )}
-                    <Tag style={{ fontSize: 11 }}>#{item.metadata.chunk_index}</Tag>
-                  </Space>
-                  <Tag color={item.score > 0.6 ? 'green' : item.score > 0.3 ? 'blue' : 'default'}>
-                    {(item.score * 100).toFixed(1)}%
-                  </Tag>
-                  {item.rerank_score != null && (
-                    <Tag color="purple" style={{ fontSize: 10 }}>Rerank: {(item.rerank_score * 100).toFixed(1)}%</Tag>
-                  )}
-                  {item.bm25_score != null && (
-                    <Tag color="orange" style={{ fontSize: 10 }}>BM25</Tag>
-                  )}
-                </div>
-                <Progress
-                  percent={Math.round(item.score * 100)}
-                  strokeColor={scoreColor(item.score)}
-                  showInfo={false}
-                  size="small"
-                  style={{ marginBottom: 8 }}
-                />
-                <Paragraph style={{ margin: 0, color: '#333', lineHeight: 1.8 }}>{highlightText(item.content, query)}</Paragraph>
-              </div>
-            </List.Item>
-          )}
-        />
       </Card>
 
       {/* Chunk Configs */}
@@ -1051,10 +792,10 @@ export default function KbDetail() {
           <Form.Item label="自定义参数（未选择配置时生效）">
             <Input.Group compact>
               <Form.Item name="chunk_size" noStyle>
-                <InputNumber placeholder="大小 800" style={{ width: '33%' }} min={100} />
+                <InputNumber placeholder="大小 512" style={{ width: '33%' }} min={100} />
               </Form.Item>
               <Form.Item name="chunk_overlap" noStyle>
-                <InputNumber placeholder="重叠 200" style={{ width: '33%' }} min={0} />
+                <InputNumber placeholder="重叠 64" style={{ width: '33%' }} min={0} />
               </Form.Item>
               <Form.Item name="separators" noStyle>
                 <Input placeholder="分隔符" style={{ width: '34%' }} />
@@ -1088,7 +829,7 @@ export default function KbDetail() {
             separators: editingConfig.separators,
             strategy: editingConfig.strategy || 'fixed',
             heading_level: editingConfig.heading_level ?? 0,
-          } : { chunk_size: 800, chunk_overlap: 200, separators: '', strategy: 'fixed', heading_level: 0 }}
+          } : { chunk_size: 512, chunk_overlap: 64, separators: '', strategy: 'fixed', heading_level: 0 }}
         >
           <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
             <Input placeholder="例如：默认分段" />
@@ -1188,10 +929,10 @@ export default function KbDetail() {
           <Form.Item label="自定义参数（未选择配置时生效）">
             <Input.Group compact>
               <Form.Item name="chunk_size" noStyle>
-                <InputNumber placeholder="大小 800" style={{ width: '33%' }} min={100} />
+                <InputNumber placeholder="大小 512" style={{ width: '33%' }} min={100} />
               </Form.Item>
               <Form.Item name="chunk_overlap" noStyle>
-                <InputNumber placeholder="重叠 200" style={{ width: '33%' }} min={0} />
+                <InputNumber placeholder="重叠 64" style={{ width: '33%' }} min={0} />
               </Form.Item>
               <Form.Item name="separators" noStyle>
                 <Input placeholder="分隔符" style={{ width: '34%' }} />

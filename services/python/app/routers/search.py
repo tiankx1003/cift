@@ -99,7 +99,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
                         content=r["content"],
                         score=normalized,
                         metadata=r["metadata"],
-                        bm25_score=r["bm25_score"],
+                        bm25_score=normalized,
                     ))
 
         elif search_mode == "hybrid":
@@ -125,7 +125,7 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
                 content = vector_map[cid].content if cid in vector_map else bm25_map[cid]["content"]
                 meta = vector_map[cid].metadata if cid in vector_map else bm25_map[cid]["metadata"]
                 bs = bm25_map[cid].get("normalized_bm25", 0.0) if cid in bm25_map else 0.0
-                raw_bs = bm25_map[cid].get("bm25_score", 0.0) if cid in bm25_map else None
+                norm_bm25 = bm25_map[cid].get("normalized_bm25") if cid in bm25_map else None
 
                 final_score = vw * vs + (1 - vw) * bs
                 if final_score < req.similarity_threshold:
@@ -136,7 +136,8 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
                     content=content,
                     score=final_score,
                     metadata=meta,
-                    bm25_score=raw_bs,
+                    bm25_score=norm_bm25,
+                    vector_score=vs if cid in vector_map else None,
                 ))
 
             merged.sort(key=lambda x: x.score, reverse=True)
